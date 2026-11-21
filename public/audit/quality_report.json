@@ -1,0 +1,121 @@
+{
+  "counts": {
+    "entries": 297,
+    "uniqueIdentities": 297,
+    "memoryHook": 154,
+    "funFact": 158,
+    "examples": 297,
+    "etymology": 297,
+    "missingExercises": [
+      "die Hure",
+      "suchen",
+      "Cimone"
+    ],
+    "legacyProgressRecords": 54
+  },
+  "sources": [
+    {
+      "path": "import_React_useState_useEffect_useMemo_pasted-2.txt",
+      "sha256": "eba95b9887bbd0d4088b507ac07b128887da5e0ba49aa041d5fb5e6dfac551d5",
+      "records": 99,
+      "sameCorpusRecords": 99,
+      "unresolvedNear": 0,
+      "additionalUnique": 0,
+      "role": "uploaded historical app seed; existing current content preferred; no progress overwritten"
+    },
+    {
+      "path": "import_React_useState_useEffect_useMemo_pasted-3.txt",
+      "sha256": "e27a9286bb3fb964c9d7c6fc9cd8dbb4834ab83dfa055709445adec050fecc25",
+      "records": 99,
+      "sameCorpusRecords": 99,
+      "unresolvedNear": 0,
+      "additionalUnique": 0,
+      "role": "uploaded historical app seed; existing current content preferred; no progress overwritten"
+    },
+    {
+      "path": "import_React_useState_useEffect_useMemo_pasted-4.txt",
+      "sha256": "28223c2b71d4e34c8eb89223356c16e831d67c4262a9ef3af9a94dcb509252cd",
+      "records": 148,
+      "sameCorpusRecords": 148,
+      "unresolvedNear": 0,
+      "additionalUnique": 0,
+      "role": "uploaded historical app seed; existing current content preferred; no progress overwritten"
+    },
+    {
+      "path": "import_React_useState_useEffect_useMemo_pasted-5.txt",
+      "sha256": "2cc5a77897b6971780c64eb5bf83d323f6b2523c233e1ddc21e08cdb58c0aa0a",
+      "records": 297,
+      "sameCorpusRecords": 297,
+      "unresolvedNear": 0,
+      "additionalUnique": 0,
+      "role": "uploaded historical app seed; existing current content preferred; no progress overwritten"
+    },
+    {
+      "path": "import_React_useState_useEffect_useMemo_pasted.txt",
+      "sha256": "5610c53f984256031c28013e3b11e3f8c4685481b0edb7afd583dd341bd9eff7",
+      "records": 94,
+      "sameCorpusRecords": 94,
+      "unresolvedNear": 0,
+      "additionalUnique": 0,
+      "role": "uploaded historical app seed; existing current content preferred; no progress overwritten"
+    }
+  ],
+  "unresolvedSources": [
+    {
+      "name": "Wortwerk Goethe B1 001-100 JSON (two exports)",
+      "status": "missing",
+      "role": "same corpus, count once; mentioned in user history only; file unavailable"
+    },
+    {
+      "name": "ZIP A001",
+      "status": "missing",
+      "role": "richer first 10 words; file unavailable"
+    },
+    {
+      "name": "CSV index / CSV-XLSX exports",
+      "status": "missing",
+      "role": "derivatives, never count as additional words"
+    },
+    {
+      "name": "older batch 78 words",
+      "status": "missing",
+      "role": "no complete file in available repo, uploads or loaded history"
+    }
+  ],
+  "contentVerification": "Not independently lexicographically verified; generated hooks/facts have no authoritative provenance",
+  "tests": {
+    "unitTestsPassed": 25,
+    "unitTestFiles": 2,
+    "automaticPreviewBuild": "build OK",
+    "manualProductionBuild": false,
+    "browserQA": {
+      "initial": 297,
+      "added": 2,
+      "duplicateSkipped": 1,
+      "final": 299,
+      "originalRecordsUnchanged": 297,
+      "roundTripStateEqual": true,
+      "ledgerVerified": true,
+      "runtimeErrors": []
+    },
+    "viewports": [
+      [
+        1280,
+        1800
+      ],
+      [
+        491,
+        972
+      ]
+    ],
+    "report": "quality_report.md"
+  },
+  "remainingLimitations": [
+    "Original Goethe/A001/78-word source files unavailable",
+    "Three missing fill exercises",
+    "143 missing hooks and 139 missing facts",
+    "Sparse contexts limit attainable mastery; no free sentence evaluator",
+    "Browser-only storage; no cross-device sync",
+    "All learning modes not individually tested end-to-end"
+  ]
+}
