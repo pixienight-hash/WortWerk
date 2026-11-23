@@ -21,12 +21,7 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import {
-  b2ProgressSummary,
-  normalizedWord,
-  type B2StageKey,
-  type Word,
-} from "@/lib/wortwerk-data";
+import { b2ProgressSummary, normalizedWord, type B2StageKey, type Word } from "@/lib/wortwerk-data";
 import MasteryEvidence from "@/components/MasteryEvidence";
 
 type HeroMetric = "readiness" | "assimilated" | "mastered";
@@ -109,11 +104,7 @@ const POS_LABELS: Record<string, string> = {
   Sonstiges: "Λοιπά",
 };
 
-export default function B2ProgressPanel({
-  vocab,
-  testLogs,
-  onStartB2Practice,
-}: Props) {
+export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: Props) {
   const [heroMetric, setHeroMetric] = useState<HeroMetric>("readiness");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("games");
   const [gameMetricMode, setGameMetricMode] = useState<"accuracy" | "attempts">("accuracy");
@@ -137,7 +128,7 @@ export default function B2ProgressPanel({
           label: `${t.date.slice(8, 10)}/${t.date.slice(5, 7)}`,
           pct: Math.round(((t.exact + t.near) / t.total) * 100),
         })),
-    [testLogs]
+    [testLogs],
   );
 
   const heroStats = useMemo(() => {
@@ -295,9 +286,7 @@ export default function B2ProgressPanel({
             <div className="ww-display text-xl font-bold leading-tight text-[#F5F0E6]">
               {heroStats.primary}
             </div>
-            <div className="mt-1 text-xs leading-snug text-[#F5F0E6]/72">
-              {heroStats.subtitle}
-            </div>
+            <div className="mt-1 text-xs leading-snug text-[#F5F0E6]/72">{heroStats.subtitle}</div>
             <div
               role="group"
               aria-label="Κριτήριο δείκτη B2"
@@ -336,7 +325,13 @@ export default function B2ProgressPanel({
             <div className="ww-mono text-sm font-bold text-[#A7E3D7]">
               {summary.scoredAttempts > 0 ? `${summary.evidenceAccuracy}%` : "—"}
             </div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Ακρίβεια</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">Συν. ακρίβεια</div>
+          </div>
+          <div>
+            <div className="ww-mono text-sm font-bold text-[#E5C17B]">
+              {summary.activeRecallAttempts > 0 ? `${summary.activeRecallAccuracy}%` : "—"}
+            </div>
+            <div className="text-[10px] text-[#F5F0E6]/65">Ενεργή ανάκλ.</div>
           </div>
           <div>
             <div className="ww-mono text-sm font-bold text-[#F2D9A0]">{summary.due}</div>
@@ -344,11 +339,7 @@ export default function B2ProgressPanel({
           </div>
           <div>
             <div className="ww-mono text-sm font-bold text-[#F5F0E6]">{summary.typedVerified}</div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Γραφή</div>
-          </div>
-          <div>
-            <div className="ww-mono text-sm font-bold text-[#F5F0E6]">{summary.novelVerified}</div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Συμφραζ.</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">Γραφή Recall</div>
           </div>
         </div>
 
@@ -437,6 +428,12 @@ export default function B2ProgressPanel({
             );
           })}
         </div>
+        {summary.previouslyKnown > 0 && (
+          <div className="mt-2.5 flex items-center justify-between border-t border-[#ECE4D3] pt-2 text-[11px] text-[#6B655B]">
+            <span>Γνωρίζω ήδη (εκτός κατάκτησης WortWerk)</span>
+            <strong className="ww-mono text-[#2D6E62]">{summary.previouslyKnown}</strong>
+          </div>
+        )}
       </div>
 
       {/* 3. Dynamic Analytics Card (Games / 7-Day B2 Activity / POS / B2 Tests) */}
@@ -479,9 +476,7 @@ export default function B2ProgressPanel({
         {analyticsTab === "games" && (
           <div className="mt-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-semibold text-[#211F1C]">
-                Επίδοση B2 ανά παιχνίδι
-              </div>
+              <div className="text-xs font-semibold text-[#211F1C]">Επίδοση B2 ανά παιχνίδι</div>
               <div className="flex gap-1 rounded-lg bg-[#FAF7F0] p-0.5 text-[10.5px]">
                 <button
                   type="button"
@@ -556,11 +551,7 @@ export default function B2ProgressPanel({
                           );
                         }}
                       />
-                      <Bar
-                        dataKey={gameMetricMode}
-                        radius={[5, 5, 0, 0]}
-                        maxBarSize={28}
-                      >
+                      <Bar dataKey={gameMetricMode} radius={[5, 5, 0, 0]} maxBarSize={28}>
                         {summary.byGame.map((g) => (
                           <Cell
                             key={g.mode}
@@ -575,11 +566,15 @@ export default function B2ProgressPanel({
                 {gameInsight && (
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE4D3] pt-2 text-[11px] text-[#4A453D]">
                     <span>
-                      Δυνατότερο: <strong className="text-[#3F8C5F]">{gameInsight.best.label}</strong> ({gameInsight.best.accuracy}%)
+                      Δυνατότερο:{" "}
+                      <strong className="text-[#3F8C5F]">{gameInsight.best.label}</strong> (
+                      {gameInsight.best.accuracy}%)
                     </span>
                     {gameInsight.weakest.mode !== gameInsight.best.mode && (
                       <span>
-                        Για ενίσχυση: <strong className="text-[#C1543C]">{gameInsight.weakest.label}</strong> ({gameInsight.weakest.accuracy}%)
+                        Για ενίσχυση:{" "}
+                        <strong className="text-[#C1543C]">{gameInsight.weakest.label}</strong> (
+                        {gameInsight.weakest.accuracy}%)
                       </span>
                     )}
                   </div>
@@ -638,7 +633,8 @@ export default function B2ProgressPanel({
                       return (
                         <div className="rounded-lg border border-[#E8E0CE] bg-white px-2.5 py-2 text-xs shadow-sm">
                           <div className="font-bold text-[#211F1C]">
-                            {pt.day}{pt.isToday ? " · Σήμερα" : ""}
+                            {pt.day}
+                            {pt.isToday ? " · Σήμερα" : ""}
                           </div>
                           <div className="mt-0.5 text-[#4FA091] font-semibold">
                             {pt.attempts} προσπάθειες ({pt.uniqueWords} B2 λέξεις)
@@ -706,7 +702,8 @@ export default function B2ProgressPanel({
             {activeDayPoint && (
               <div className="mt-2 flex items-center justify-between border-t border-[#ECE4D3] pt-2 text-[11.5px] text-[#4A453D]">
                 <span>
-                  {activeDayPoint.day}{activeDayPoint.isToday ? " (Σήμερα)" : ""}
+                  {activeDayPoint.day}
+                  {activeDayPoint.isToday ? " (Σήμερα)" : ""}
                 </span>
                 <span>
                   <strong>{activeDayPoint.uniqueWords}</strong> B2 λέξεις ·{" "}
@@ -721,9 +718,7 @@ export default function B2ProgressPanel({
         {analyticsTab === "pos" && (
           <div className="mt-3 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-[#211F1C]">
-                B2 ανά γραμματικό είδος
-              </div>
+              <div className="text-xs font-semibold text-[#211F1C]">B2 ανά γραμματικό είδος</div>
               {posFilter !== "all" && (
                 <button
                   type="button"
@@ -767,12 +762,32 @@ export default function B2ProgressPanel({
                     </span>
                   </div>
                   <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-[#ECE4D3]">
-                    <div style={{ width: `${mastPct}%`, background: "#6FA96B", transition: "width 350ms ease" }} />
-                    <div style={{ width: `${assimPct}%`, background: "#CB9146", transition: "width 350ms ease" }} />
-                    <div style={{ width: `${startPct}%`, background: "#4FA091", opacity: 0.7, transition: "width 350ms ease" }} />
+                    <div
+                      style={{
+                        width: `${mastPct}%`,
+                        background: "#6FA96B",
+                        transition: "width 350ms ease",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: `${assimPct}%`,
+                        background: "#CB9146",
+                        transition: "width 350ms ease",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: `${startPct}%`,
+                        background: "#4FA091",
+                        opacity: 0.7,
+                        transition: "width 350ms ease",
+                      }}
+                    />
                   </div>
                   <div className="mt-1 text-[10.5px] text-[#8B8680]">
-                    {row.mastered} κατακτημένες · {row.assimilated} αφομοιωμένες · {row.remaining} νέες
+                    {row.mastered} κατακτημένες · {row.assimilated} αφομοιωμένες · {row.remaining}{" "}
+                    νέες
                   </div>
                 </button>
               );
@@ -788,7 +803,8 @@ export default function B2ProgressPanel({
                   Δεν υπάρχει ακόμα ιστορικό τεστ B2
                 </div>
                 <p className="mt-1 text-[11.5px] text-[#8B8680]">
-                  Ολοκλήρωσε ένα τεστ B2 (όλα τα παιχνίδια, 20 τυχαίες λέξεις) για να δεις την εξέλιξη βαθμολογίας.
+                  Ολοκλήρωσε ένα τεστ B2 (όλα τα παιχνίδια, 20 τυχαίες λέξεις) για να δεις την
+                  εξέλιξη βαθμολογίας.
                 </p>
                 {onStartB2Practice && (
                   <button
@@ -861,22 +877,25 @@ export default function B2ProgressPanel({
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-2 divide-y divide-[#ECE4D3] border-t border-[#ECE4D3]">
-                  {b2Tests.slice(-4).reverse().map((t) => (
-                    <div
-                      key={`${t.date}-${t.idx}`}
-                      className="flex items-center justify-between py-1.5 text-xs"
-                    >
-                      <span className="text-[#8B8680]">
-                        {t.date} · Τεστ #{t.idx}
-                      </span>
-                      <span>
-                        <strong className="text-[#211F1C]">{t.pct}%</strong>{" "}
-                        <span className="text-[#A79F8E]">
-                          ({t.exact}+{t.near}/{t.total})
+                  {b2Tests
+                    .slice(-4)
+                    .reverse()
+                    .map((t) => (
+                      <div
+                        key={`${t.date}-${t.idx}`}
+                        className="flex items-center justify-between py-1.5 text-xs"
+                      >
+                        <span className="text-[#8B8680]">
+                          {t.date} · Τεστ #{t.idx}
                         </span>
-                      </span>
-                    </div>
-                  ))}
+                        <span>
+                          <strong className="text-[#211F1C]">{t.pct}%</strong>{" "}
+                          <span className="text-[#A79F8E]">
+                            ({t.exact}+{t.near}/{t.total})
+                          </span>
+                        </span>
+                      </div>
+                    ))}
                 </div>
               </>
             )}
@@ -947,7 +966,10 @@ export default function B2ProgressPanel({
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
             {stageFilter !== "all" && (
               <span className="rounded-full bg-[#F5F0E6] px-2 py-0.5 text-[#4A453D]">
-                Φίλτρο: {stageFilter === "due" ? "Οφείλονται" : STAGE_META.find((s) => s.key === stageFilter)?.label || stageFilter}
+                Φίλτρο:{" "}
+                {stageFilter === "due"
+                  ? "Οφείλονται"
+                  : STAGE_META.find((s) => s.key === stageFilter)?.label || stageFilter}
               </span>
             )}
             {posFilter !== "all" && (

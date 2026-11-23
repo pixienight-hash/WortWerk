@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeEntry, normalizedWord, classify, safeMerge, parseImport, fullBackup, restoreState, applyImport, reviewEntries, makeEvidence, mastery, todayAccuracy, isMasteredToday, todayWordProgress, todayBatchProgress, compareTyped, checkTyped, diagnoseTyped, weeklyXpTimeline, wordAssimilationTimestamp, learningRate30d, isB2Word, filterVocabByPracticeScope, findContextExample, buildAllGamesQuestions, pickRandomTestWords, b2ProgressSummary, ALL_PRACTICE_GAMES, MAX_JSON_BYTES } from '@/lib/wortwerk-data';
+import { normalizeEntry, normalizedWord, classify, safeMerge, parseImport, fullBackup, restoreState, applyImport, reviewEntries, makeEvidence, mastery, isPreviouslyKnown, isMasteredThroughWortwerk, applyPreviouslyKnownSelection, updatePreviouslyKnownOnAnswer, PREVIOUSLY_KNOWN_STATUS, vocabProgressStats, todayAccuracy, isMasteredToday, todayWordProgress, todayBatchProgress, compareTyped, checkTyped, diagnoseTyped, weeklyXpTimeline, wordAssimilationTimestamp, learningRate30d, isB2Word, filterVocabByPracticeScope, findAllContextExamples, findContextExample, buildAllGamesQuestions, pickRandomTestWords, b2ProgressSummary, b2GoalProgress, homeProgressSummary, ALL_PRACTICE_GAMES, MAX_JSON_BYTES } from '@/lib/wortwerk-data';
 import VOCAB_SEED from '@/data/vocab-seed.json';
 
 const word = () => normalizeEntry({ word: 'der Tisch', type: 'Nomen', meaning: { greek: ['τραπέζι'] }, learning: { timesSeen: 54, timesCorrect: 40, confidence: 4, nextReview: 123 }, fav: true, tags: ['custom'], dateAdded: '2026-01-01' });
 const DAY = 86400000; const base = new Date(2026, 0, 1, 12).getTime();
 function evidence(w: any, i: number, mode = 'recall', context = `c${i}`, day = i) { return makeEvidence(w, true, { timestamp: base + day * DAY, mode, contextId: context, context, prompt: `prompt ${context}`, answer: 'der Tisch', exact: true, articleCorrect: true, sessionId: `s${day}`, newContext: mode === 'context' }); }
-function positive() { const w = word(); w.evidence = [0, 1, 4, 11, 11, 11, 11].map((day, i) => evidence(w, i, ['recall', 'fill', 'context'][i % 3], `c${i}`, day)); return w; }
+function positive() { const w = word(); w.evidence = [0, 1, 4, 11].map((day, i) => evidence(w, i, ['recall', 'fill', 'context', 'context'][i]!, `c${i}`, day)); return w; }
 describe('WortWerk import and backup', () => {
   it('normalizes case, article, spaces and terminal punctuation', () => { expect(normalizedWord('  DIE   Tisch?! ')).toBe('tisch'); expect(classify(normalizeEntry({ ...word(), word: 'TISCH.' }), [word()]).kind).toBe('exact'); });
   it('preserves different POS and meanings', () => { expect(classify({ ...word(), type: 'Verb' }, [word()]).kind).toBe('new'); expect(classify({ ...word(), meaning: { greek: ['διαφορετική σημασία'] } }, [word()]).kind).toBe('new'); });
@@ -24,16 +24,150 @@ describe('WortWerk import and backup', () => {
 });
 describe('Evidence-based mastery', () => {
   it('changing context IDs or sessions cannot inflate identical prompts', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => ({ ...evidence(w, i), context: 'same sentence', prompt: 'same prompt' })); expect(mastery(w).contexts).toBe(1); expect(mastery(w).successes).toBe(1); expect(mastery(w).mastered).toBe(false); });
-  it('seven MC correct do not prove mastery', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'mc')); expect(mastery(w).mastered).toBe(false); expect(mastery(w).successes).toBe(0); });
-  it('seven flashcard self-ratings do not prove mastery', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'flashcard')); expect(mastery(w).mastered).toBe(false); expect(w.evidence[0].correct).toBeNull(); });
-  it('seven answers in same context do not prove mastery', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'recall', 'same', 0)); expect(mastery(w).contexts).toBe(1); expect(mastery(w).successes).toBe(1); expect(mastery(w).mastered).toBe(false); });
-  it('full seven-context, seven-retrieval scenario is provisionally mastered', () => { const m = mastery(positive()); expect(m.contexts).toBe(7); expect(m.successes).toBe(7); expect(m.activities).toBe(3); expect(m.days).toBe(4); expect(m.delayed).toBe(3); expect(m.mastered).toBe(true); expect(m.level).toBe('Provisionally mastered'); });
-  it('six encounters are insufficient', () => { const w = positive(); w.evidence.pop(); expect(mastery(w).mastered).toBe(false); });
-  it('requires three activity types', () => { const w = positive(); w.evidence = w.evidence.map((e: any) => ({ ...e, mode: 'recall' })); expect(mastery(w).mastered).toBe(false); });
-  it('requires three dates and delayed 1/3/7 retrieval', () => { const w = positive(); w.evidence = w.evidence.map((e: any) => ({ ...e, timestamp: base })); expect(mastery(w).days).toBe(1); expect(mastery(w).delayed).toBe(0); expect(mastery(w).mastered).toBe(false); });
-  it('requires exact spelling, unaided retrieval and article', () => { for (const patch of [{ exact: false }, { hintUsed: true }, { articleCorrect: false }]) { const w = positive(); w.evidence = w.evidence.map((e: any) => ({ ...e, ...patch })); expect(mastery(w).mastered).toBe(false); } });
+  it('MC correct answers do not prove mastery or active recall successes', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'mc')); expect(mastery(w).mastered).toBe(false); expect(mastery(w).successes).toBe(0); });
+  it('flashcard self-ratings do not prove mastery', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'flashcard')); expect(mastery(w).mastered).toBe(false); expect(w.evidence[0].correct).toBeNull(); });
+  it('repeated answers in same context do not prove mastery', () => { const w = word(); w.evidence = Array.from({ length: 7 }, (_, i) => evidence(w, i, 'recall', 'same', 0)); expect(mastery(w).contexts).toBe(1); expect(mastery(w).successes).toBe(1); expect(mastery(w).mastered).toBe(false); });
+  it('full four-context, four-retrieval scenario across 1-2/3-5/7-14d chain is provisionally mastered', () => {
+    const m = mastery(positive());
+    expect(m.contexts).toBe(4);
+    expect(m.successes).toBe(4);
+    expect(m.activities).toBe(3);
+    expect(m.days).toBe(4);
+    expect(m.delayed).toBe(3);
+    expect(m.mastered).toBe(true);
+    expect(m.level).toBe('Provisionally mastered');
+  });
+  it('transitions cleanly through New -> Learning -> Consolidating -> Mastered -> Retained', () => {
+    const fresh = normalizeEntry({ word: 'der Tisch', type: 'Nomen', meaning: { greek: ['τραπέζι'] }, learning: { confidence: 0, timesSeen: 0, timesCorrect: 0, nextReview: 0 } });
+    expect(mastery(fresh).level).toBe('New');
+
+    // 1–2 active successes -> Learning
+    fresh.evidence = [evidence(fresh, 0, 'recall', 'c0', 0), evidence(fresh, 1, 'fill', 'c1', 1)];
+    expect(mastery(fresh).level).toBe('Learning');
+    expect(mastery(fresh).mastered).toBe(false);
+
+    // 3 unique active successes across 3 distinct contexts -> Consolidating (still not Mastered)
+    fresh.evidence.push(evidence(fresh, 2, 'context', 'c2', 4));
+    expect(mastery(fresh).level).toBe('Consolidating');
+    expect(mastery(fresh).mastered).toBe(false);
+
+    // 4th active success completing the 7–14d delayed window -> Provisionally mastered (Mastered)
+    fresh.evidence.push(evidence(fresh, 3, 'context', 'c3', 11));
+    expect(mastery(fresh).level).toBe('Provisionally mastered');
+    expect(mastery(fresh).mastered).toBe(true);
+
+    // 19 days after chainEnd is still Mastered (not yet Retained)
+    const almostRetained = { ...fresh, evidence: [...fresh.evidence, evidence(fresh, 4, 'recall', 'c0', 30)] };
+    expect(mastery(almostRetained).level).toBe('Provisionally mastered');
+
+    // >= 20 days after chainEnd -> Retained
+    fresh.evidence.push(evidence(fresh, 4, 'recall', 'c0', 31));
+    expect(mastery(fresh).level).toBe('Retained');
+    expect(mastery(fresh).mastered).toBe(true);
+  });
+  it('requires distinct contexts for Consolidating (same sentence via fill and context cannot double-count)', () => {
+    const w = normalizeEntry({
+      word: 'der Tisch',
+      type: 'Nomen',
+      meaning: { greek: ['τραπέζι'] },
+      exercise: { sentence: 'Der ______ ist groß.', answer: 'Tisch' },
+    });
+    w.evidence = [
+      evidence(w, 0, 'recall', 'τραπέζι', 0),
+      evidence(w, 1, 'fill', 'Der ______ ist groß.', 1),
+      evidence(w, 2, 'context', 'Der Tisch ist groß.', 4),
+    ];
+    // fill and context normalize to the same canonical sentence -> only 2 active contexts -> stays Learning
+    expect(mastery(w).activeContexts).toBe(2);
+    expect(mastery(w).level).toBe('Learning');
+  });
+  it('three encounters are insufficient for Mastered', () => { const w = positive(); w.evidence.pop(); expect(mastery(w).mastered).toBe(false); expect(mastery(w).level).toBe('Consolidating'); });
+  it('requires at least two active activity types (1 fails, 2 succeeds)', () => {
+    const oneMode = positive();
+    oneMode.evidence = oneMode.evidence.map((e: any) => ({ ...e, mode: 'recall' }));
+    expect(mastery(oneMode).mastered).toBe(false);
+
+    const twoModes = word();
+    twoModes.evidence = [
+      evidence(twoModes, 0, 'recall', 'c0', 0),
+      evidence(twoModes, 1, 'context', 'c1', 2),
+      evidence(twoModes, 2, 'context', 'c2', 7),
+      evidence(twoModes, 3, 'context', 'c3', 21),
+    ];
+    expect(mastery(twoModes).activities).toBe(2);
+    expect(mastery(twoModes).delayed).toBe(3);
+    expect(mastery(twoModes).mastered).toBe(true);
+  });
+  it('enforces real calendar-day delayed windows (1-2d, 3-5d, 7-14d)', () => {
+    const sameDay = positive();
+    sameDay.evidence = sameDay.evidence.map((e: any) => ({ ...e, timestamp: base }));
+    expect(mastery(sameDay).days).toBe(1);
+    expect(mastery(sameDay).delayed).toBe(0);
+    expect(mastery(sameDay).mastered).toBe(false);
+
+    // Upper boundary: +2d, +5d, +14d -> passes
+    const upperBound = word();
+    upperBound.evidence = [0, 2, 7, 21].map((day, i) => evidence(upperBound, i, ['recall', 'fill', 'context', 'context'][i]!, `c${i}`, day));
+    expect(mastery(upperBound).delayed).toBe(3);
+    expect(mastery(upperBound).mastered).toBe(true);
+
+    // Outside first window (+3d instead of 1-2d) -> fails
+    const badStep1 = word();
+    badStep1.evidence = [0, 3, 7, 15].map((day, i) => evidence(badStep1, i, ['recall', 'fill', 'context', 'context'][i]!, `c${i}`, day));
+    expect(mastery(badStep1).delayed).toBeLessThan(3);
+    expect(mastery(badStep1).mastered).toBe(false);
+
+    // Outside second window (+2d instead of 3-5d) -> fails
+    const badStep2 = word();
+    badStep2.evidence = [0, 1, 3, 11].map((day, i) => evidence(badStep2, i, ['recall', 'fill', 'context', 'context'][i]!, `c${i}`, day));
+    expect(mastery(badStep2).delayed).toBeLessThan(3);
+    expect(mastery(badStep2).mastered).toBe(false);
+
+    // Outside third window (+16d instead of 7-14d) -> fails
+    const badStep3 = word();
+    badStep3.evidence = [0, 1, 4, 20].map((day, i) => evidence(badStep3, i, ['recall', 'fill', 'context', 'context'][i]!, `c${i}`, day));
+    expect(mastery(badStep3).delayed).toBeLessThan(3);
+    expect(mastery(badStep3).mastered).toBe(false);
+  });
+  it('requires exact spelling, unaided retrieval, Recall typed, and article', () => {
+    for (const patch of [{ exact: false }, { hintUsed: true }, { articleCorrect: false }]) {
+      const w = positive();
+      w.evidence = w.evidence.map((e: any) => ({ ...e, ...patch }));
+      expect(mastery(w).mastered).toBe(false);
+    }
+    // Missing Recall (only fill + context) cannot become Mastered
+    const noRecall = word();
+    noRecall.evidence = [0, 1, 4, 11].map((day, i) => evidence(noRecall, i, i === 0 ? 'fill' : 'context', `c${i}`, day));
+    expect(mastery(noRecall).typed).toBe(false);
+    expect(mastery(noRecall).mastered).toBe(false);
+  });
   it('requires a novel sentence context', () => { const w = positive(); w.evidence = w.evidence.map((e: any) => ({ ...e, newContext: false })); expect(mastery(w).mastered).toBe(false); });
-  it('delayed failure demotes and subsequent maintenance proves retained', () => { const w = positive(); w.evidence.push(evidence(w, 8, 'recall', 'maintenance', 32)); expect(mastery(w).level).toBe('Retained'); w.evidence.push({ ...evidence(w, 9, 'recall', 'failed', 33), correct: false, exact: false }); expect(mastery(w).mastered).toBe(false); expect(mastery(w).failed).toBe(true); });
+  it('delayed failure demotes, neutral synonym does not demote, and new valid chain recovers Mastered', () => {
+    const w = positive();
+    // Neutral synonym after mastery does NOT demote
+    w.evidence.push(makeEvidence(w, false, { timestamp: base + 15 * DAY, mode: 'recall', status: 'synonym', neutral: true, prompt: 'τραπέζι', answer: 'Tafel', sessionId: 's15' }));
+    expect(mastery(w).mastered).toBe(true);
+    expect(mastery(w).failed).toBe(false);
+
+    // Maintenance >= 20 days after chainEnd -> Retained
+    w.evidence.push(evidence(w, 8, 'recall', 'maintenance', 32));
+    expect(mastery(w).level).toBe('Retained');
+
+    // Active-recall failure demotes from Retained/Mastered
+    w.evidence.push({ ...evidence(w, 9, 'recall', 'failed', 33), correct: false, exact: false });
+    expect(mastery(w).mastered).toBe(false);
+    expect(mastery(w).failed).toBe(true);
+
+    // Completing a fresh 1-2 / 3-5 / 7-14d chain after the failure restores Mastered
+    w.evidence.push(
+      evidence(w, 10, 'recall', 'c0', 35),
+      evidence(w, 11, 'fill', 'c1', 36),
+      evidence(w, 12, 'context', 'c2', 39),
+      evidence(w, 13, 'context', 'c3', 47),
+    );
+    expect(mastery(w).failed).toBe(false);
+    expect(mastery(w).mastered).toBe(true);
+  });
   it('does not interpret legacy counters as mastery or todays accuracy', () => { const w = word(); expect(mastery(w).mastered).toBe(false); expect(mastery(w).level).toBe('Learning'); expect(todayAccuracy(w, base)).toEqual({ attempts: 0, pct: 0 }); });
 });
 describe('Case-insensitive grading & incremental daily progress', () => {
@@ -319,5 +453,294 @@ describe('B2-only practice scope, all-games builder & truly random test selectio
     expect(todayPoint?.attempts).toBe(4); // mc + flashcard on b2Mastered + recall + fill on b2Mid
     expect(todayPoint?.correct).toBe(2); // mc + recall
     expect(todayPoint?.accuracy).toBe(67); // 2/3 scored
+  });
+
+  it('computes B2 goal progress ring metrics, milestones, and closest non-mastered words from evidence only', () => {
+    const nowTs = base + 12 * DAY;
+
+    const emptyGoal = b2GoalProgress([], nowTs);
+    expect(emptyGoal.total).toBe(0);
+    expect(emptyGoal.mastered).toBe(0);
+    expect(emptyGoal.masteredPct).toBe(0);
+    expect(emptyGoal.nextMilestone).toBeNull();
+    expect(emptyGoal.closestWords).toEqual([]);
+
+    const b1Ignored = normalizeEntry({ word: 'erklären', type: 'Verb', cefr: 'B1', meaning: { greek: ['εξηγώ'] } });
+    b1Ignored.evidence = [0, 1, 4, 11, 11, 11, 11].map((day, i) =>
+      makeEvidence(b1Ignored, true, { timestamp: base + day * DAY, mode: ['recall', 'fill', 'context'][i % 3], contextId: `ig-${i}`, context: `igctx-${i}`, prompt: `igp-${i}`, answer: 'erklären', exact: true, articleCorrect: true, sessionId: `sig-${day}`, newContext: i % 3 === 2 })
+    );
+
+    const b2Mastered = normalizeEntry({ word: 'die Qualifikation', type: 'Nomen', cefr: 'B2', meaning: { greek: ['προσόν'] } });
+    b2Mastered.evidence = [0, 1, 4, 11, 11, 11, 11].map((day, i) =>
+      makeEvidence(b2Mastered, true, { timestamp: base + day * DAY, mode: ['recall', 'fill', 'context'][i % 3], contextId: `gm-${i}`, context: `gmctx-${i}`, prompt: `gmp-${i}`, answer: 'die Qualifikation', exact: true, articleCorrect: true, sessionId: `sgm-${day}`, newContext: i % 3 === 2 })
+    );
+
+    const b2Consolidating = normalizeEntry({ word: 'vermeiden', type: 'Verb', cefr: 'B2', meaning: { greek: ['αποφεύγω'] } });
+    b2Consolidating.evidence = [
+      makeEvidence(b2Consolidating, true, { timestamp: base + 10 * DAY, mode: 'recall', contextId: 'vc-1', context: 'vc1', prompt: 'vp1', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 'svc-10' }),
+      makeEvidence(b2Consolidating, true, { timestamp: base + 11 * DAY, mode: 'fill', contextId: 'vc-2', context: 'vc2', prompt: 'vp2', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 'svc-11' }),
+      makeEvidence(b2Consolidating, true, { timestamp: nowTs, mode: 'context', contextId: 'vc-3', context: 'vc3', prompt: 'vp3', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 'svc-12', newContext: true }),
+    ];
+
+    const b2LegacyOnly = normalizeEntry({ word: 'beeinflussen', type: 'Verb', cefr: 'B2', meaning: { greek: ['επηρεάζω'] }, learning: { confidence: 5, timesSeen: 20, timesCorrect: 20, nextReview: nowTs + 10 * DAY } });
+    const b2Fresh = normalizeEntry({ word: 'ignorant', type: 'Adjektiv', cefr: 'B2', meaning: { greek: ['αδαής'] } });
+
+    const goal = b2GoalProgress([b1Ignored, b2Mastered, b2Consolidating, b2LegacyOnly, b2Fresh], nowTs);
+    expect(goal.total).toBe(4);
+    expect(goal.mastered).toBe(1);
+    expect(goal.remainingToMaster).toBe(3);
+    expect(goal.masteredPct).toBe(25);
+    expect(goal.masteredRatio).toBe(0.25);
+    expect(goal.assimilated).toBe(2);
+    expect(goal.inConsolidation).toBe(1);
+    expect(goal.milestones.map((m) => ({ pct: m.pct, target: m.targetCount, reached: m.reached, remaining: m.remaining }))).toEqual([
+      { pct: 25, target: 1, reached: true, remaining: 0 },
+      { pct: 50, target: 2, reached: false, remaining: 1 },
+      { pct: 75, target: 3, reached: false, remaining: 2 },
+      { pct: 100, target: 4, reached: false, remaining: 3 },
+    ]);
+    expect(goal.nextMilestone?.pct).toBe(50);
+    expect(goal.closestWords[0]?.label).toBe('vermeiden');
+    expect(goal.closestWords.every((w) => !w.mastered)).toBe(true);
+  });
+
+  it('computes daily and 30-day monthly progress for Home screen from evidence and session logs only', () => {
+    const nowTs = base + 20 * DAY;
+    const todayIso = '2026-01-21';
+    const prevIso = '2026-01-16';
+
+    const w1 = normalizeEntry({ word: 'vermeiden', type: 'Verb', cefr: 'B2', meaning: { greek: ['αποφεύγω'] } });
+    w1.evidence = [
+      makeEvidence(w1, true, { timestamp: nowTs - 5 * DAY, mode: 'recall', contextId: 'h1', context: 'h1', prompt: 'p1', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 's1' }),
+      makeEvidence(w1, true, { timestamp: nowTs, mode: 'fill', contextId: 'h2', context: 'h2', prompt: 'p2', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 's2' }),
+      makeEvidence(w1, true, { timestamp: nowTs, mode: 'context', contextId: 'h3', context: 'h3', prompt: 'p3', answer: 'vermeiden', exact: true, articleCorrect: true, sessionId: 's2', newContext: true }),
+    ];
+
+    const w2 = normalizeEntry({ word: 'erklären', type: 'Verb', cefr: 'B1', meaning: { greek: ['εξηγώ'] } });
+    w2.evidence = [
+      makeEvidence(w2, false, { timestamp: nowTs, mode: 'mc', contextId: 'h4', context: 'h4', prompt: 'p4', answer: 'wrong', exact: false, articleCorrect: true, sessionId: 's2' }),
+    ];
+
+    // Legacy counters only, no evidence — must not inflate daily/monthly counts
+    const legacy = normalizeEntry({ word: 'beeinflussen', type: 'Verb', cefr: 'B2', meaning: { greek: ['επηρεάζω'] }, learning: { confidence: 5, timesSeen: 20, timesCorrect: 20 } });
+
+    const meta = {
+      newPerDay: 5,
+      sessionLogs: [
+        { date: prevIso, xp: 40, durationMs: 120000 },
+        { date: todayIso, xp: 90, durationMs: 300000 },
+      ],
+    };
+
+    const res = homeProgressSummary([w1, w2, legacy], meta, nowTs);
+    expect(res.daily.date).toBe(todayIso);
+    expect(res.daily.wordsPracticed).toBe(2);
+    expect(res.daily.targetWords).toBe(5);
+    expect(res.daily.goalPct).toBe(40);
+    expect(res.daily.scored).toBe(3);
+    expect(res.daily.correct).toBe(2);
+    expect(res.daily.accuracyPct).toBe(67);
+    expect(res.daily.assimilated).toBe(1);
+    expect(res.daily.xp).toBe(90);
+    expect(res.daily.durationMs).toBe(300000);
+
+    expect(res.monthly.windowDays).toBe(30);
+    expect(res.monthly.days).toHaveLength(30);
+    expect(res.monthly.activeDays).toBe(2);
+    expect(res.monthly.practicedWords).toBe(2);
+    expect(res.monthly.assimilated).toBe(1);
+    expect(res.monthly.xp).toBe(130);
+    expect(res.monthly.durationMs).toBe(420000);
+  });
+});
+
+describe('Previously known words (previously_known)', () => {
+  it('marks multiple words as previously_known, supports undo, and preserves existing progress and metadata untouched', () => {
+    const w1 = positive();
+    const w2 = normalizeEntry({ word: 'die Brücke', type: 'Nomen', meaning: { greek: ['γέφυρα'] }, fav: true, dateAdded: '2026-02-01', learning: { timesSeen: 5, timesCorrect: 4, confidence: 2, nextReview: 999 } });
+    const w3 = normalizeEntry({ word: 'das Fenster', type: 'Nomen', meaning: { greek: ['παράθυρο'] } });
+
+    const selected = applyPreviouslyKnownSelection([w1, w2, w3], [w1.id, w2.id]);
+    expect(selected[0].status).toBe(PREVIOUSLY_KNOWN_STATUS);
+    expect(selected[1].status).toBe(PREVIOUSLY_KNOWN_STATUS);
+    expect(selected[2].status).toBeUndefined();
+    expect(isPreviouslyKnown(selected[0])).toBe(true);
+    expect(isPreviouslyKnown(selected[2])).toBe(false);
+
+    // Existing progress, evidence, favorites, and metadata remain untouched
+    expect(selected[0].evidence).toEqual(w1.evidence);
+    expect(selected[0].learning).toEqual(w1.learning);
+    expect(selected[1].fav).toBe(true);
+    expect(selected[1].dateAdded).toBe('2026-02-01');
+    expect(selected[1].learning).toEqual(w2.learning);
+
+    // Undo selection for w1 while keeping w2
+    const undone = applyPreviouslyKnownSelection(selected, [w2.id]);
+    expect(isPreviouslyKnown(undone[0])).toBe(false);
+    expect(undone[0].status).toBeUndefined();
+    expect(undone[0].evidence).toEqual(w1.evidence);
+    expect(isPreviouslyKnown(undone[1])).toBe(true);
+  });
+
+  it('includes ~10% previously_known words in random tests without excluding them completely', () => {
+    const regular = Array.from({ length: 30 }, (_, i) =>
+      normalizeEntry({ word: `lernen${i}`, type: 'Verb', meaning: { greek: [`μαθαίνω ${i}`] } })
+    );
+    const known = Array.from({ length: 20 }, (_, i) => ({
+      ...normalizeEntry({ word: `wissen${i}`, type: 'Verb', meaning: { greek: [`ξέρω ${i}`] } }),
+      status: PREVIOUSLY_KNOWN_STATUS,
+    }));
+    const pool = [...regular, ...known];
+
+    // Deterministic RNG at 0.5 -> exact 10% of 20 = 2 previously_known words
+    const picked20 = pickRandomTestWords(pool, 20, () => 0.5);
+    expect(picked20).toHaveLength(20);
+    expect(picked20.filter(isPreviouslyKnown)).toHaveLength(2);
+    expect(picked20.filter((w) => !isPreviouslyKnown(w))).toHaveLength(18);
+
+    // Works when pool has no previously_known words or only previously_known words
+    expect(pickRandomTestWords(regular, 10, () => 0.5)).toHaveLength(10);
+    expect(pickRandomTestWords(known, 10, () => 0.5)).toHaveLength(10);
+  });
+
+  it('excludes previously_known from WortWerk mastery metrics while still counting them in evaluation accuracy and leaving mastery() unchanged', () => {
+    const nowTs = base + 12 * DAY;
+    const masteredRegular = { ...positive(), cefr: 'B2' };
+    const masteredKnown = {
+      ...positive(),
+      word: 'die Erfahrung',
+      id: 'b2-known',
+      cefr: 'B2',
+      status: PREVIOUSLY_KNOWN_STATUS,
+    };
+
+    // Existing mastery() criteria are untouched
+    expect(mastery(masteredKnown).mastered).toBe(true);
+    // WortWerk mastery counter excludes previously_known
+    expect(isMasteredThroughWortwerk(masteredRegular)).toBe(true);
+    expect(isMasteredThroughWortwerk(masteredKnown)).toBe(false);
+
+    // Learning rate (30d) excludes previously_known
+    const lr = learningRate30d([masteredRegular, masteredKnown], nowTs, 'mastered', 30);
+    expect(lr.totalWords).toBe(1);
+
+    // B2 summary & goal tracker exclude previously_known from mastered/closestWords while keeping its scored evidence in accuracy
+    const b2 = b2ProgressSummary([masteredRegular, masteredKnown], nowTs);
+    expect(b2.mastered).toBe(1);
+    expect(b2.scoredAttempts).toBe(8); // 4 from regular + 4 from previously_known
+    expect(b2.evidenceAccuracy).toBe(100);
+    expect(b2.activeRecallAccuracy).toBe(100);
+    expect(b2.previouslyKnown).toBe(1);
+
+    const goal = b2GoalProgress([masteredRegular, masteredKnown], nowTs);
+    expect(goal.mastered).toBe(1);
+    expect(goal.closestWords.some((item) => item.id === masteredKnown.id)).toBe(false);
+
+    // Home progress summary counts evidence accuracy normally while excluding previously_known from monthly mastered
+    const home = homeProgressSummary([masteredRegular, masteredKnown], { newPerDay: 10 }, nowTs);
+    expect(home.monthly.mastered).toBe(1);
+    expect(home.monthly.scored).toBe(8);
+    expect(home.monthly.accuracyPct).toBe(100);
+  });
+
+  it('returns a previously_known word to normal learning after repeated mistakes and resets streak on correct answers', () => {
+    const w = {
+      ...normalizeEntry({ word: 'verstehen', type: 'Verb', meaning: { greek: ['καταλαβαίνω'] } }),
+      status: PREVIOUSLY_KNOWN_STATUS,
+      previouslyKnownMistakes: 0,
+    };
+
+    // 1st mistake keeps status but records mistake count
+    const afterOneWrong = updatePreviouslyKnownOnAnswer(w, false);
+    expect(isPreviouslyKnown(afterOneWrong)).toBe(true);
+    expect(afterOneWrong.previouslyKnownMistakes).toBe(1);
+
+    // Neutral/synonym answer does not increment mistakes
+    const afterNeutral = updatePreviouslyKnownOnAnswer(afterOneWrong, false, { neutral: true });
+    expect(afterNeutral.previouslyKnownMistakes).toBe(1);
+
+    // A correct answer resets mistake streak
+    const afterCorrect = updatePreviouslyKnownOnAnswer(afterOneWrong, true);
+    expect(isPreviouslyKnown(afterCorrect)).toBe(true);
+    expect(afterCorrect.previouslyKnownMistakes).toBe(0);
+
+    // Two consecutive mistakes return the word to normal learning
+    const wrong1 = updatePreviouslyKnownOnAnswer(afterCorrect, false);
+    const wrong2 = updatePreviouslyKnownOnAnswer(wrong1, false);
+    expect(isPreviouslyKnown(wrong2)).toBe(false);
+    expect(wrong2.status).toBeUndefined();
+    expect(wrong2.previouslyKnownMistakes).toBeUndefined();
+  });
+});
+
+describe('Context extraction & unified vocabProgressStats', () => {
+  it('uses real inflected verb/participle/plural examples, deduplicates fill overlaps, and rotates unseen contexts first', () => {
+    const w = normalizeEntry({
+      word: 'umsetzen',
+      type: 'Verb',
+      meaning: { greek: ['υλοποιώ'] },
+      exercise: { sentence: 'Die Regierung hat die Reform ______.', answer: 'umgesetzt' },
+      examples: [
+        { de: 'Die Regierung hat die Reform umgesetzt.', el: 'Same as fill — must be skipped' },
+        { de: 'Wir setzen den Plan schnell um.', el: 'Split verb — no single-token match' },
+        { de: 'Das Team hat alle Ideen erfolgreich umgesetzt.', el: 'Real distinct participle example' },
+        { de: 'Das Team hat alle Ideen erfolgreich umgesetzt!', el: 'Punctuation variant — must be deduplicated' },
+      ],
+    });
+    const allCtx = findAllContextExamples(w);
+    expect(allCtx).toHaveLength(1);
+    expect(allCtx[0]!.answer).toBe('umgesetzt');
+    expect(allCtx[0]!.context).toBe('Das Team hat alle Ideen erfolgreich umgesetzt.');
+
+    const picked1 = findContextExample(w);
+    expect(picked1?.isNovel).toBe(true);
+    expect(picked1?.context).toBe('Das Team hat alle Ideen erfolgreich umgesetzt.');
+
+    // Once seen in evidence, it is no longer marked isNovel
+    w.evidence = [makeEvidence(w, true, { mode: 'context', context: picked1!.context, prompt: picked1!.sentence, answer: 'umgesetzt', exact: true, sessionId: 's1', newContext: true })];
+    const picked2 = findContextExample(w);
+    expect(picked2?.isNovel).toBe(false);
+  });
+
+  it('separates overall accuracy, active recall accuracy, and all progress buckets consistently in vocabProgressStats', () => {
+    const wNew = normalizeEntry({ word: 'neu', type: 'Adjektiv', meaning: { greek: ['νέος'] }, learning: { confidence: 0, timesSeen: 0, timesCorrect: 0, nextReview: 0 } });
+    const wLearning = normalizeEntry({ word: 'lernen', type: 'Verb', meaning: { greek: ['μαθαίνω'] }, learning: { confidence: 5, timesSeen: 20, timesCorrect: 20, nextReview: base + 100 * DAY } });
+    wLearning.evidence = [
+      makeEvidence(wLearning, true, { timestamp: base, mode: 'mc', prompt: 'lernen', answer: 'μαθαίνω', exact: true, sessionId: 's1' }),
+      makeEvidence(wLearning, true, { timestamp: base + 1000, mode: 'recall', prompt: 'μαθαίνω', answer: 'lerne', exact: false, status: 'near', sessionId: 's1' }),
+      makeEvidence(wLearning, false, { timestamp: base + 2000, mode: 'recall', prompt: 'μαθαίνω', answer: 'lernen', neutral: true, status: 'synonym', sessionId: 's1' }),
+      makeEvidence(wLearning, true, { timestamp: base + 3000, mode: 'flashcard', selfRating: 'Gut', prompt: 'lernen', answer: 'Gut', sessionId: 's1' }),
+    ];
+    const wConsolidating = normalizeEntry({ word: 'üben', type: 'Verb', meaning: { greek: ['εξασκούμαι'] }, learning: { confidence: 3, timesSeen: 3, timesCorrect: 3, nextReview: base + 100 * DAY } });
+    wConsolidating.evidence = [0, 1, 2].map((i) => evidence(wConsolidating, i, ['recall', 'fill', 'context'][i]!, `u${i}`, i));
+
+    const wMastered = positive();
+    const wRetained = positive();
+    wRetained.id = 'retained-1';
+    wRetained.evidence.push(evidence(wRetained, 8, 'recall', 'c0', 32));
+
+    const wPrevKnown = { ...positive(), id: 'known-1', status: PREVIOUSLY_KNOWN_STATUS };
+
+    const stats = vocabProgressStats([wNew, wLearning, wConsolidating, wMastered, wRetained, wPrevKnown], base + 12 * DAY);
+    expect(stats.newCount).toBe(1);
+    expect(stats.learning).toBe(1); // High confidence (5) does NOT make it Mastered!
+    expect(stats.consolidating).toBe(1);
+    expect(stats.provisionallyMastered).toBe(1);
+    expect(stats.retained).toBe(1);
+    expect(stats.mastered).toBe(2); // provisionallyMastered + retained, excluding previously_known
+    expect(stats.previouslyKnown).toBe(1);
+
+    // Scored evidence:
+    // wLearning: 1 MC correct + 1 recall near (correct=true, exact=false); neutral synonym & flashcard excluded -> 2/2 overall, 0/1 active recall exact
+    // wConsolidating: 3/3 overall, 3/3 active
+    // wMastered: 4/4 overall, 4/4 active
+    // wRetained: 5/5 overall, 5/5 active
+    // wPrevKnown: 4/4 overall, 4/4 active (participates in accuracy!)
+    expect(stats.overallScored).toBe(18);
+    expect(stats.overallCorrect).toBe(18);
+    expect(stats.overallAccuracy).toBe(100);
+    expect(stats.activeRecallAttempts).toBe(17);
+    expect(stats.activeRecallExact).toBe(16);
+    expect(stats.activeRecallAccuracy).toBe(Math.round((16 / 17) * 100));
   });
 });

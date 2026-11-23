@@ -4,13 +4,16 @@ import {
   Home, BookOpen, GraduationCap, BarChart3, Plus, X, Check, RotateCcw,
   Flame, Sparkles, ChevronRight, ChevronLeft, Search, Trash2, Trophy,
   Layers, ListChecks, PenLine, Shuffle, Loader2, Volume2, Star,
-  TrendingUp, TrendingDown, Minus
+  TrendingUp, TrendingDown, Minus, MessageSquareQuote
 } from "lucide-react";
-import { normalizeEntry, identity, reviewEntries, applyImport, parseImport, fullBackup, vocabularyBackup, restoreState, makeEvidence, mastery, todayAccuracy, isMasteredToday, todayBatchProgress, compareTyped, checkTyped, diagnoseTyped, weeklyXpTimeline, learningRate30d, MAX_JSON_BYTES, normalizedWord, familyMembers, familyGroups, resolveWordFamily, trueShuffle, isB2Word, filterVocabByPracticeScope, hasFillExercise, findContextExample, buildPracticeQuestion, buildAllGamesQuestions, pickRandomTestWords } from '@/lib/wortwerk-data';
+import { normalizeEntry, identity, reviewEntries, applyImport, parseImport, fullBackup, vocabularyBackup, restoreState, makeEvidence, mastery, masteryScheduleState, computeAlignedNextReview, preferredActiveGameForWord, sortWordsByReviewPriority, isPreviouslyKnown, isMasteredThroughWortwerk, applyPreviouslyKnownSelection, updatePreviouslyKnownOnAnswer, vocabProgressStats, todayAccuracy, isMasteredToday, todayBatchProgress, compareTyped, checkTyped, diagnoseTyped, weeklyXpTimeline, learningRate30d, MAX_JSON_BYTES, normalizedWord, familyMembers, familyGroups, resolveWordFamily, trueShuffle, isB2Word, filterVocabByPracticeScope, hasFillExercise, findContextExample, mergeSeedEnrichments, buildPracticeQuestion, buildAllGamesQuestions, pickRandomTestWords } from '@/lib/wortwerk-data';
 import ImportReview from '@/components/ImportReview';
-import ProgressEvidence from '@/components/ProgressEvidence';
+import HomeProgressOverview from '@/components/HomeProgressOverview';
 import FamilyCatalogue from '@/components/FamilyCatalogue';
 import B2ProgressPanel from '@/components/B2ProgressPanel';
+import B2GoalTracker from '@/components/B2GoalTracker';
+import PreviouslyKnownModal from '@/components/PreviouslyKnownModal';
+import SentencesModule from '@/components/sentences/SentencesModule';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, Cell, AreaChart, Area, ComposedChart, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import VOCAB_SEED from '@/data/vocab-seed.json';
@@ -57,20 +60,23 @@ const MASTERED_STAGE = STAGE_DAYS.length - 1; // Scheduling stage only, not proo
 const MAINTENANCE_MIN_GAP = 20 * DAY; // αν μια κατακτημένη λέξη δεν ξαναφανεί >20 μέρες, μπορεί να τραβηχτεί νωρίς για έλεγχο
 
 function isDue(word) {
+  if (isPreviouslyKnown(word)) return false;
   const nr = word?.learning?.nextReview;
-  return !nr || nr <= now();
+  if (!nr || nr <= now()) return true;
+  return masteryScheduleState(word, now()).inWindow;
 }
 
 function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
 function applyAnswer(word, correct, boost = 1, opts = {}) {
   word = normalizeEntry(word);
-  const evidence = [...(word.evidence || []), makeEvidence(word, correct, opts)];
+  const currentTs = opts.timestamp ?? now();
+  const evidence = [...(word.evidence || []), makeEvidence(word, correct, { ...opts, timestamp: currentTs })];
   if (opts.neutral) return { ...word, evidence };
   const learning = { ...(word.learning || { confidence: 0, timesSeen: 0, timesCorrect: 0, nextReview: 0, lastReviewed: 0 }) };
   learning.timesSeen = (learning.timesSeen || 0) + 1;
-  learning.lastReviewed = now();
-  const today = dateStr(now());
+  learning.lastReviewed = currentTs;
+  const today = dateStr(currentTs);
   if (opts.typed) {
     learning.typedSeen = (learning.typedSeen || 0) + 1;
     if (correct && opts.exact) {
@@ -87,12 +93,16 @@ function applyAnswer(word, correct, boost = 1, opts = {}) {
     // "κατακτημένη" μόνο μετά από σωστή γραφή σε 2 διαφορετικές μέρες
     const cap = nDays >= 2 ? MASTERED_STAGE : nDays === 1 ? 4 : 3;
     learning.confidence = clamp(Math.min(cur + boost, Math.max(cap, cur)), 0, MASTERED_STAGE);
-    learning.nextReview = now() + INTERVALS[learning.confidence];
+    learning.nextReview = computeAlignedNextReview({ ...word, learning, evidence }, true, INTERVALS[learning.confidence], currentTs);
   } else {
     learning.confidence = clamp((learning.confidence || 0) - 1, 0, MASTERED_STAGE);
-    learning.nextReview = now() + DAY;
+    learning.nextReview = computeAlignedNextReview({ ...word, learning, evidence }, false, DAY, currentTs);
   }
-  return { ...word, learning, evidence };
+  return updatePreviouslyKnownOnAnswer({ ...word, learning, evidence }, correct, {
+    neutral: opts.neutral,
+    status: opts.status,
+    exact: opts.exact,
+  });
 }
 
 // Daily practice completion is not mastery; only today's scored attempts count.
@@ -107,9 +117,14 @@ function daysSince(ts) {
 // + λίγες τυχαίες "κατακτημένες" λέξεις που δεν έχουν ξαναφανεί εδώ και καιρό, για έλεγχο μακροπρόθεσμης διατήρησης
 // (έτσι ώστε μια λέξη που θυμάσαι σήμερα αλλά μπορεί να ξεχάσεις σε έναν μήνα να ελέγχεται ξανά τακτικά).
 function getDailyPracticeWords(vocab, maintenanceCount = 4) {
-  const due = trueShuffle(vocab.filter(isDue));
+  const currentTs = now();
+  const due = sortWordsByReviewPriority(vocab.filter(isDue), currentTs);
   const maintenanceCandidates = vocab.filter(
-    (w) => !isDue(w) && (w.learning?.confidence || 0) >= MASTERED_STAGE && daysSince(w.learning?.lastReviewed) > 20
+    (w) =>
+      !isPreviouslyKnown(w) &&
+      !isDue(w) &&
+      ((w.learning?.confidence || 0) >= MASTERED_STAGE || mastery(w).mastered) &&
+      daysSince(w.learning?.lastReviewed) > 20
   );
   const maintenance = trueShuffle(maintenanceCandidates).slice(0, maintenanceCount);
   return { due, maintenance, all: [...due, ...maintenance] };
@@ -126,21 +141,24 @@ function shuffle(arr) {
 
 function pickRoundWords(vocab, size = 10, mode = "mix") {
   if (vocab.length === 0) return [];
+  const currentTs = now();
   const matchesMode = (w) => {
     if (mode === "fill") return hasFillExercise(w);
     if (mode === "context") return findContextExample(w) !== null;
     return true;
   };
-  const prioritized = vocab.filter(matchesMode);
-  const fallback = vocab.filter((w) => !matchesMode(w));
+  const regular = vocab.filter((w) => !isPreviouslyKnown(w));
+  const known = vocab.filter(isPreviouslyKnown);
   const orderPool = (list) => {
-    const due = trueShuffle(list.filter(isDue)).sort((a, b) => (a.learning?.confidence ?? 1) - (b.learning?.confidence ?? 1));
+    const due = sortWordsByReviewPriority(list.filter(isDue), currentTs);
     const rest = trueShuffle(list.filter((w) => !isDue(w))).sort(
       (a, b) => (a.learning?.confidence ?? 1) - (b.learning?.confidence ?? 1)
     );
     return [...due, ...rest];
   };
-  const pool = [...orderPool(prioritized), ...orderPool(fallback)];
+  const orderedRegular = [...orderPool(regular.filter(matchesMode)), ...orderPool(regular.filter((w) => !matchesMode(w)))];
+  const orderedKnown = [...orderPool(known.filter(matchesMode)), ...orderPool(known.filter((w) => !matchesMode(w)))];
+  const pool = [...orderedRegular, ...orderedKnown];
   return pool.slice(0, Math.min(size, vocab.length));
 }
 
@@ -543,7 +561,11 @@ function ConfidenceBar({ confidence = 0, width = 56 }) {
   const c = clamp(confidence, 0, 5);
   const pct = Math.max(10, (c / 5) * 100);
   return (
-    <div style={{ width, height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden", flexShrink: 0 }}>
+    <div
+      title={`Πρόγραμμα επανάληψης (στάδιο ${c}/5)`}
+      aria-label={`Στάδιο επανάληψης ${c} από 5`}
+      style={{ width, height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden", flexShrink: 0 }}
+    >
       <div style={{ height: "100%", width: `${pct}%`, background: CONFIDENCE_COLORS[c], borderRadius: 999, transition: "width 0.3s" }} />
     </div>
   );
@@ -580,23 +602,23 @@ function TopBar({ title, subtitle, right }) {
 
 /* ============================== BOTTOM NAV ============================== */
 
-function BottomNav({ tab, setTab, dueCount, onNewWord }) {
+function BottomNav({ tab, setTab, dueCount }) {
   const items = [
     { id: "home", label: "Home", icon: Home },
     { id: "vocab", label: "Wörter", icon: BookOpen },
+    { id: "learn", label: "Lernen", icon: Sparkles, isCenter: true },
     { id: "families", label: "Οικογένειες", icon: Layers },
-    { id: "new", label: "Neu", icon: Plus, isAction: true },
-    { id: "learn", label: "Lernen", icon: Sparkles },
     { id: "stats", label: "Fortschritt", icon: BarChart3 },
   ];
   return (
-    <div
+    <nav
+      aria-label="Κύρια πλοήγηση"
       style={{
         position: "sticky", bottom: 0, left: 0, right: 0,
-        background: "rgba(253,250,243,0.92)", backdropFilter: "blur(8px)",
+        background: "rgba(253,250,243,0.94)", backdropFilter: "blur(10px)",
         borderTop: "1px solid #ECE4D3",
-        display: "flex", justifyContent: "space-around",
-        padding: "8px 4px calc(8px + env(safe-area-inset-bottom))",
+        display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", alignItems: "end",
+        padding: "6px 6px calc(8px + env(safe-area-inset-bottom))",
         zIndex: 20,
       }}
     >
@@ -606,33 +628,48 @@ function BottomNav({ tab, setTab, dueCount, onNewWord }) {
         return (
           <Button variant="ghost" aria-current={active ? "page" : undefined}
             key={it.id}
-            onClick={() => (it.isAction ? onNewWord() : setTab(it.id))}
+            onClick={() => setTab(it.id)}
             style={{
               background: "none", border: "none", display: "flex",
-              flexDirection: "column", alignItems: "center", gap: 3,
-              padding: "6px 2px", position: "relative", flex: "1 1 0", minWidth: 0, height: "auto",
-              color: active ? "#B5542E" : "#A79F8E",
+              flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+              padding: "4px 2px", position: "relative", minWidth: 0, minHeight: 48, height: "auto",
+              color: active ? "#B5542E" : "#8B8680",
             }}
           >
-            {it.id === "learn" && dueCount > 0 && (
+            {it.isCenter ? (
               <span
-                className="ww-mono"
                 style={{
-                  position: "absolute", top: 0, right: 6, background: "#C1543C",
-                  color: "#FFFFFF", fontSize: 9, borderRadius: 999,
-                  minWidth: 14, height: 14, display: "flex", alignItems: "center",
-                  justifyContent: "center", padding: "0 3px",
+                  position: "relative",
+                  width: 36, height: 36, borderRadius: 999,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: active ? "#211F1C" : "#ECE4D3",
+                  color: active ? "#F5F0E6" : "#211F1C",
+                  transition: "background 160ms ease, color 160ms ease",
                 }}
               >
-                {dueCount}
+                <Icon size={18} strokeWidth={active ? 2.3 : 1.9} />
+                {dueCount > 0 && (
+                  <span
+                    className="ww-mono"
+                    style={{
+                      position: "absolute", top: -4, right: -6, background: "#C1543C",
+                      color: "#FFFFFF", fontSize: 9, borderRadius: 999,
+                      minWidth: 16, height: 16, display: "flex", alignItems: "center",
+                      justifyContent: "center", padding: "0 4px",
+                    }}
+                  >
+                    {dueCount}
+                  </span>
+                )}
               </span>
+            ) : (
+              <Icon size={20} strokeWidth={active ? 2.3 : 1.8} />
             )}
-            <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
-            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{it.label}</span>
+            <span style={{ fontSize: 10, fontWeight: active || it.isCenter ? 600 : 400, whiteSpace: "nowrap" }}>{it.label}</span>
           </Button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -640,7 +677,7 @@ function BottomNav({ tab, setTab, dueCount, onNewWord }) {
 
 function buildQuestions(words, mode) {
   if (mode === "mix" || mode === "daily") {
-    return buildAllGamesQuestions(words, { shuffleOrder: true });
+    return buildAllGamesQuestions(words, { shuffleOrder: true, prioritizeMasteryWindows: true });
   }
   return words.map((w) => buildPracticeQuestion(w, mode));
 }
@@ -975,11 +1012,10 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
     if (result || !value.trim()) return;
     const diag = diagnoseTyped(value, w, { allWords });
     if (diag.status === "synonym") {
-      if (testMode) { setResult("synonym"); setDetail({ ...diag, userAnswer: value.trim() }); return; }
-      if (!synonymFirst) { setSynonymFirst(true); setHint(true); setValue(""); return; }
-      setResult("wrong"); setDetail({ ...diag, hinted: true, userAnswer: value.trim() }); return;
+      if (testMode || synonymFirst) { setResult("synonym"); setDetail({ ...diag, userAnswer: value.trim() }); return; }
+      setSynonymFirst(true); setValue(""); return;
     }
-    const usedHint = hint || synonymFirst;
+    const usedHint = hint;
     setDetail({ ...diag, hinted: usedHint, userAnswer: value.trim() });
     if (diag.status === "article") { setResult("article"); return; }
     if (diag.status === "exact") setResult(usedHint ? "hinted" : "exact");
@@ -989,8 +1025,8 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
   function finish() {
     if (result === "synonym") { onAnswer(false, 0, { typed: true, exact: false, status: "synonym", reason: "synonym", neutral: true, mode: "recall", prompt: (w.meaning?.greek || []).join(" · "), answer: value, responseTime: now() - questionStart.current }); return; }
     const ok = result === "exact" || result === "near" || result === "hinted";
-    const exactOk = result === "exact" && !hint && !synonymFirst && !item.helpUsed;
-    onAnswer(ok, exactOk ? 1 : 0, { typed: true, exact: exactOk, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? (w.meaning?.greek || []).join(" · ") : w.exercise?.sentence, answer: value, hintUsed: hint || synonymFirst || !!item.helpUsed, articleCorrect: !w.article || leadingArticle(value) === String(w.article).toLowerCase(), responseTime: now() - questionStart.current, newContext: !!item.newContext });
+    const exactOk = result === "exact" && !hint && !item.helpUsed;
+    onAnswer(ok, exactOk ? 1 : 0, { typed: true, exact: exactOk, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? (w.meaning?.greek || []).join(" · ") : w.exercise?.sentence, answer: value, hintUsed: hint || !!item.helpUsed, articleCorrect: !w.article || leadingArticle(value) === String(w.article).toLowerCase(), responseTime: now() - questionStart.current, newContext: !!item.newContext });
   }
 
   return (
@@ -1005,7 +1041,7 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
       </div>
       {synonymFirst && !result && (
         <div className="ww-pop" style={{ fontSize: 13.5, color: "#B07A2A", textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-          ✓ Δεκτό συνώνυμο! Ψάχνουμε όμως άλλη λέξη — δοκίμασε ξανά με την υπόδειξη.
+          ✓ Δεκτό συνώνυμο! Ψάχνουμε όμως άλλη λέξη — δοκίμασε ξανά (χωρίς ποινή).
         </div>
       )}
       {!result && !testMode && <HintBar show={hint} text={makeHint(w.word)} onShow={() => setHint(true)} />}
@@ -1041,6 +1077,9 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
 }
 
 function pickIntensiveType(word) {
+  if (!isPreviouslyKnown(word) && masteryScheduleState(word, now()).inWindow) {
+    return preferredActiveGameForWord(word);
+  }
   const seen = (word.learning && word.learning.timesSeen) || 0;
   if (seen === 0) return "flashcard";
   const cycle = ["mc"];
@@ -1621,7 +1660,6 @@ function RoundResult({ result, onDone, onRetryMissed }) {
 function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
   const dueCount = vocab.filter(isDue).length;
   const b2Count = useMemo(() => vocab.filter(isB2Word).length, [vocab]);
-  const previewWords = vocab.slice(0, 4);
 
   return (
     <div style={{ padding: "18px 20px 24px" }}>
@@ -1675,36 +1713,16 @@ function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
         )}
       </div>
 
-      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 10 }}>Deine Wörter</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {previewWords.map((w) => (
-          <div key={w.id} className="ww-tag-card" style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>
-                {w.word}
-              </div>
-              <div style={{ fontSize: 12.5, color: "#8B8680", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {(w.meaning?.greek || []).join(", ")}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <Pill>{typeLabel(w.type)}</Pill>
-              {w.cefr ? <Pill outline>{w.cefr}</Pill> : null}
-            </div>
-          </div>
-        ))}
-      </div>
-      <button
-        onClick={() => goTo("vocab")}
-        style={{ marginTop: 14, background: "none", border: "none", color: "#211F1C", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 4, padding: 0 }}
-      >
-        Alle anzeigen <ChevronRight size={14} />
-      </button>
+      <HomeProgressOverview
+        vocab={vocab}
+        meta={meta}
+        onOpenStats={() => goTo("stats")}
+      />
     </div>
   );
 }
 
-function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onAutoStartConsumed, practiceScope = "all", setPracticeScope }) {
+function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onAutoStartConsumed, practiceScope = "all", setPracticeScope, onOpenB2Stats }) {
   const ctx = useContext(AppCtx);
   const [mode, setMode] = useState(null);
   const [customWords, setCustomWords] = useState(null);
@@ -1757,6 +1775,12 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
     }
     setNote("");
     setCustomWords(trueShuffle(favs).slice(0, 20));
+    setMode("mix");
+  }
+  function startClosestB2(words) {
+    if (!words || !words.length) return;
+    setNote("");
+    setCustomWords(words);
     setMode("mix");
   }
   function startTest() {
@@ -1906,6 +1930,14 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
           </div>
         )}
       </div>
+
+      {isB2Only && (
+        <B2GoalTracker
+          vocab={vocab}
+          onOpenB2Stats={onOpenB2Stats}
+          onPracticeClosest={startClosestB2}
+        />
+      )}
 
       {todaysWords.length > 0 && (
         <div className="ww-tag-card ww-pop" style={{ padding: "20px", marginBottom: 18, borderLeft: "3px solid #6FA96B" }}>
@@ -2614,6 +2646,7 @@ function VocabScreen({ vocab, updateVocab }) {
   const [filterLevel, setFilterLevel] = useState("Alle");
   const [selected, setSelected] = useState(null);
   const [addMode, setAddMode] = useState(null);
+  const [showPreviouslyKnown, setShowPreviouslyKnown] = useState(false);
   const [weakFirst, setWeakFirst] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
   const [queuedView, setQueuedView] = useState(false);
@@ -2651,11 +2684,17 @@ function VocabScreen({ vocab, updateVocab }) {
         title="Wörter"
         subtitle={`${activeCount} λέξεις${queuedCount ? ` · ${queuedCount} σε αναμονή` : ""}`}
         right={
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setAddMode("text")} aria-label="Προσθήκη από κείμενο" style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(79,160,145,0.15)", border: "1px solid #CFE6E0", color: "#4FA091", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ListChecks size={18} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => setShowPreviouslyKnown(true)}
+              aria-label="Γνωρίζω ήδη"
+              style={{ height: 44, padding: "0 12px", borderRadius: 22, background: "rgba(79,160,145,0.15)", border: "1px solid #CFE6E0", color: "#2D6E62", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+            >
+              <ListChecks size={16} />
+              <span>Γνωρίζω ήδη</span>
             </button>
-            <button onClick={() => setAddMode("form")} aria-label="Νέα λέξη" style={{ width: 38, height: 38, borderRadius: "50%", background: "#CB9146", border: "none", color: "#211F1C", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={() => setAddMode("form")} aria-label="Νέα λέξη" style={{ width: 44, height: 44, borderRadius: "50%", background: "#CB9146", border: "none", color: "#211F1C", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Plus size={18} />
             </button>
           </div>
@@ -2706,6 +2745,7 @@ function VocabScreen({ vocab, updateVocab }) {
               <div style={{ fontWeight: 600, fontSize: 14.5 }}>
                 {w.word}
                 {w.queued && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#8B7BC7", fontWeight: 600 }}>αναμονή</span>}
+                {isPreviouslyKnown(w) && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#2D6E62", fontWeight: 600 }}>γνωστή</span>}
               </div>
               <div style={{ fontSize: 12, color: "#8B8680", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {((w.meaning && w.meaning.greek) || []).join(", ")}
@@ -2737,6 +2777,16 @@ function VocabScreen({ vocab, updateVocab }) {
         />
       )}
       {addMode && <AddWordModal onClose={() => setAddMode(null)} initialMode={addMode} />}
+      {showPreviouslyKnown && (
+        <PreviouslyKnownModal
+          vocab={vocab}
+          onClose={() => setShowPreviouslyKnown(false)}
+          onSave={(ids) => {
+            updateVocab((prev) => applyPreviouslyKnownSelection(prev, ids));
+            setShowPreviouslyKnown(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -2752,27 +2802,33 @@ function formatDuration(ms) {
   return m > 0 ? `${h} ώρ. ${m} λεπ.` : `${h} ώρες`;
 }
 
-function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
+function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "all" }) {
   const ctx = useContext(AppCtx);
   const fileRef = useRef(null);
   const [restoreMsg, setRestoreMsg] = useState("");
   const [restoreReview, setRestoreReview] = useState(null);
   const [restorePayload, setRestorePayload] = useState(null);
-  const [statsScope, setStatsScope] = useState("all");
+  const [statsScope, setStatsScope] = useState(initialScope);
+  useEffect(() => {
+    setStatsScope(initialScope);
+  }, [initialScope]);
   const [selectedXpDate, setSelectedXpDate] = useState(null);
   const [learningCriterion, setLearningCriterion] = useState("assimilated");
   const [selectedLearningDate, setSelectedLearningDate] = useState(null);
   const b2Vocab = useMemo(() => vocab.filter(isB2Word), [vocab]);
   const isB2View = statsScope === "b2";
   const statsVocab = isB2View ? b2Vocab : vocab;
-  const conf = (w) => (w.learning && w.learning.confidence) || 0;
-  const mastered = vocab.filter((w) => mastery(w).mastered).length;
-  const learning = vocab.filter((w) => mastery(w).level !== "New" && !mastery(w).mastered).length;
-  const due = vocab.filter(isDue).length;
-  const typedMastered = vocab.filter((w) => mastery(w).typed).length;
-  const totalCorrect = vocab.reduce((s, w) => s + ((w.learning && w.learning.timesCorrect) || 0), 0);
-  const totalSeen = vocab.reduce((s, w) => s + ((w.learning && w.learning.timesSeen) || 0), 0);
-  const accuracy = totalSeen > 0 ? Math.round((totalCorrect / totalSeen) * 100) : 0;
+  const progressStats = useMemo(() => vocabProgressStats(vocab, now()), [vocab]);
+  const mastered = progressStats.mastered;
+  const retained = progressStats.retained;
+  const provisionallyMastered = progressStats.provisionallyMastered;
+  const consolidating = progressStats.consolidating;
+  const learning = progressStats.learning;
+  const previouslyKnown = progressStats.previouslyKnown;
+  const due = progressStats.due;
+  const typedMastered = progressStats.typedVerified;
+  const accuracy = progressStats.overallAccuracy;
+  const activeRecallAccuracy = progressStats.activeRecallAccuracy;
   const testLogs = meta.testLogs || [];
 
   const xpTimeline = useMemo(() => weeklyXpTimeline(meta.sessionLogs || []), [meta.sessionLogs]);
@@ -2788,8 +2844,8 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
   const activeLearningIdx = Math.max(0, learningRate.days.findIndex((d) => d.date === activeLearningPoint?.date));
   const learningAccent = learningCriterion === "mastered" ? "#6FA96B" : learningCriterion === "started" ? "#4FA091" : "#CB9146";
   const learningCriterionMeta = {
-    assimilated: { label: "Αφομοίωση", hint: "Λέξεις με 3+ ακριβείς ανακλήσεις χωρίς βοήθεια" },
-    mastered: { label: "Κατάκτηση", hint: "Πλήρης τεκμηρίωση (7 συμφραζόμενα & έλεγχοι 1/3/7 ημ.)" },
+    assimilated: { label: "Αφομοίωση", hint: "Λέξεις με 3+ ακριβείς ανακλήσεις σε διαφορετικά συμφραζόμενα" },
+    mastered: { label: "Κατάκτηση", hint: "Πλήρης τεκμηρίωση (4 συμφραζόμενα, 2+ ασκήσεις & έλεγχοι 1–2/3–5/7–14 ημ.)" },
     started: { label: "Έναρξη", hint: "Λέξεις που μπήκαν σε μελέτη για πρώτη φορά" },
   };
 
@@ -2814,8 +2870,8 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
   const cefrBreakdown = cefrLevels
     .map((lvl) => {
       const words = vocab.filter((w) => (lvl === "B2" ? isB2Word(w) : w.cefr === lvl));
-      const mast = words.filter((w) => mastery(w).mastered).length;
-      const inWork = words.filter((w) => mastery(w).level !== "New" && !mastery(w).mastered).length;
+      const mast = words.filter(isMasteredThroughWortwerk).length;
+      const inWork = words.filter((w) => !isPreviouslyKnown(w) && mastery(w).level !== "New" && !mastery(w).mastered).length;
       return { level: lvl, total: words.length, mastered: mast, inWork };
     })
     .filter((row) => row.total > 0);
@@ -2943,13 +2999,19 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
               <div className="ww-tag-hole" />
               <Trophy size={18} color="#CB9146" />
               <div className="ww-display" style={{ fontSize: 24, fontWeight: 700, marginTop: 6 }}>{mastered}</div>
-              <div style={{ fontSize: 11.5, color: "#8B8680" }}>gemeistert</div>
+              <div style={{ fontSize: 11.5, color: "#8B8680" }}>
+                Mastered{retained > 0 ? ` (${retained} Retained)` : ""}
+              </div>
             </div>
             <div className="ww-tag-card" style={{ padding: "16px" }}>
               <div className="ww-tag-hole" />
               <ListChecks size={18} color="#4FA091" />
-              <div className="ww-display" style={{ fontSize: 24, fontWeight: 700, marginTop: 6 }}>{accuracy}%</div>
-              <div style={{ fontSize: 11.5, color: "#8B8680" }}>Historische Genauigkeit (inkl. Selbstbewertung)</div>
+              <div className="ww-display" style={{ fontSize: 24, fontWeight: 700, marginTop: 6 }}>
+                {accuracy != null ? `${accuracy}%` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#8B8680" }}>
+                Συνολική ακρίβεια · Ενεργή ανάκλ.: {activeRecallAccuracy != null ? `${activeRecallAccuracy}%` : "—"}
+              </div>
             </div>
             <div className="ww-tag-card" style={{ padding: "16px" }}>
               <div className="ww-tag-hole" />
@@ -2958,8 +3020,6 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
               <div style={{ fontSize: 11.5, color: "#8B8680" }}>Χρόνος σήμερα</div>
             </div>
           </div>
-
-          <ProgressEvidence vocab={allVocab || vocab} />
         </>
       )}
 
@@ -3379,10 +3439,13 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
       <div className="ww-tag-card" style={{ padding: "16px" }}>
         <div className="ww-tag-hole" />
         {[
-          { label: "Gemeistert", value: mastered, color: "#6FA96B" },
-          { label: "Γραφή χωρίς βοήθεια (evidence)", value: typedMastered, color: "#8B7BC7" },
-          { label: "In Arbeit", value: learning, color: "#CB9146" },
-          { label: "Fällig", value: due, color: "#E0584A" },
+          { label: "Retained (Διατήρηση)", value: retained, color: "#3F8C5F" },
+          { label: "Mastered (Κατάκτηση)", value: provisionallyMastered, color: "#6FA96B" },
+          { label: "Consolidating (Αφομοίωση)", value: consolidating, color: "#CB9146" },
+          { label: "Learning (Εκμάθηση)", value: learning, color: "#4FA091" },
+          { label: "Previously Known (Γνωρίζω ήδη)", value: previouslyKnown, color: "#2D6E62" },
+          { label: "Γραφή Recall χωρίς βοήθεια", value: typedMastered, color: "#8B7BC7" },
+          { label: "Fällig (Οφειλόμενες)", value: due, color: "#E0584A" },
         ].map((row) => (
           <div key={row.label} style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
@@ -3510,13 +3573,14 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice }) {
 /* ============================== APP ROOT ============================== */
 
 export default function WortwerkApp() {
+  const [activeModule, setActiveModule] = useState("woerter");
   const [tab, setTab] = useState("home");
   const [vocab, setVocab] = useState(null);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [autoStartDaily, setAutoStartDaily] = useState(false);
   const [practiceScope, setPracticeScope] = useState("all");
+  const [statsInitialScope, setStatsInitialScope] = useState("all");
   const vocabRef = useRef(null);
   const metaRef = useRef(null);
   const backupExtrasRef = useRef({});
@@ -3540,14 +3604,7 @@ export default function WortwerkApp() {
           const seedByKey = new Map(VOCAB_SEED.map((w) => [identity(normalizeEntry(w)), w]));
           const enriched = stored.map((w) => {
             const s = seedByKey.get(identity(normalizeEntry(w)));
-            if (!s) return w;
-            const out = { ...w };
-            if (!out.memoryHook && s.memoryHook) out.memoryHook = s.memoryHook;
-            if (!out.funFact && s.funFact) out.funFact = s.funFact;
-            if (!out.etymology && s.etymology) out.etymology = s.etymology;
-            if ((!out.examples || !out.examples.length) && s.examples && s.examples.length) out.examples = s.examples;
-            if ((!out.exercise || !out.exercise.sentence) && s.exercise && s.exercise.sentence) out.exercise = s.exercise;
-            return out;
+            return s ? mergeSeedEnrichments(w, s) : w;
           });
           const enrichedChanged = JSON.stringify(enriched) !== JSON.stringify(stored);
           const known = new Set(enriched.map((w) => identity(normalizeEntry(w))));
@@ -3677,41 +3734,99 @@ export default function WortwerkApp() {
     <AppCtx.Provider value={ctxValue}>
       <div className="ww-root">
         <GlobalStyle />
-        <div style={{ flex: 1, overflowY: "auto", paddingBottom: 6 }}>
-          {tab === "home" && (
-            <HomeScreen
-              vocab={activeVocab}
-              meta={meta}
-              goTo={setTab}
-              onStartDaily={() => { setAutoStartDaily(true); setTab("learn"); }}
-              onOpenB2Practice={() => { setPracticeScope("b2"); setAutoStartDaily(false); setTab("learn"); }}
-            />
-          )}
-          {tab === "vocab" && <VocabScreen vocab={vocab} updateVocab={updateVocab} />}
-          {tab === "families" && <FamiliesScreen vocab={vocab} />}
-          {tab === "learn" && (
-            <LearnScreen
-              vocab={activeVocab}
-              updateVocab={updateVocab}
-              meta={meta}
-              updateMeta={updateMeta}
-              autoStartDaily={autoStartDaily}
-              onAutoStartConsumed={() => setAutoStartDaily(false)}
-              practiceScope={practiceScope}
-              setPracticeScope={setPracticeScope}
-            />
-          )}
-          {tab === "stats" && (
-            <StatsScreen
-              vocab={activeVocab}
-              meta={meta}
-              allVocab={vocab}
-              onOpenB2Practice={() => { setPracticeScope("b2"); setAutoStartDaily(false); setTab("learn"); }}
-            />
-          )}
-        </div>
-        <BottomNav tab={tab} setTab={setTab} dueCount={dueCount} onNewWord={() => setShowQuickAdd(true)} />
-        {showQuickAdd && <AddWordModal onClose={() => setShowQuickAdd(false)} initialMode="text" />}
+        <header
+          style={{
+            position: "sticky", top: 0, zIndex: 25,
+            background: "rgba(253,250,243,0.94)", backdropFilter: "blur(10px)",
+            borderBottom: "1px solid #ECE4D3",
+            padding: "8px 16px",
+          }}
+        >
+          <nav
+            aria-label="Ενότητες WortWerk"
+            style={{
+              maxWidth: 768, margin: "0 auto",
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+              background: "#ECE4D3", padding: 3, borderRadius: 999,
+            }}
+          >
+            <button
+              type="button"
+              aria-pressed={activeModule === "woerter"}
+              onClick={() => setActiveModule("woerter")}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "8px 12px", borderRadius: 999, border: "none",
+                fontSize: 13, fontWeight: 600,
+                background: activeModule === "woerter" ? "#211F1C" : "transparent",
+                color: activeModule === "woerter" ? "#F5F0E6" : "#5E584F",
+                transition: "background 150ms ease, color 150ms ease",
+              }}
+            >
+              <BookOpen size={15} />
+              <span>Wörter</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={activeModule === "saetze"}
+              onClick={() => setActiveModule("saetze")}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "8px 12px", borderRadius: 999, border: "none",
+                fontSize: 13, fontWeight: 600,
+                background: activeModule === "saetze" ? "#211F1C" : "transparent",
+                color: activeModule === "saetze" ? "#F5F0E6" : "#5E584F",
+                transition: "background 150ms ease, color 150ms ease",
+              }}
+            >
+              <MessageSquareQuote size={15} />
+              <span>Sätze &amp; Ausdrücke</span>
+            </button>
+          </nav>
+        </header>
+
+        {activeModule === "saetze" ? (
+          <SentencesModule />
+        ) : (
+          <>
+            <div style={{ flex: 1, overflowY: "auto", paddingBottom: 6 }}>
+              {tab === "home" && (
+                <HomeScreen
+                  vocab={activeVocab}
+                  meta={meta}
+                  goTo={setTab}
+                  onStartDaily={() => { setAutoStartDaily(true); setTab("learn"); }}
+                  onOpenB2Practice={() => { setPracticeScope("b2"); setAutoStartDaily(false); setTab("learn"); }}
+                />
+              )}
+              {tab === "vocab" && <VocabScreen vocab={vocab} updateVocab={updateVocab} />}
+              {tab === "families" && <FamiliesScreen vocab={vocab} />}
+              {tab === "learn" && (
+                <LearnScreen
+                  vocab={activeVocab}
+                  updateVocab={updateVocab}
+                  meta={meta}
+                  updateMeta={updateMeta}
+                  autoStartDaily={autoStartDaily}
+                  onAutoStartConsumed={() => setAutoStartDaily(false)}
+                  practiceScope={practiceScope}
+                  setPracticeScope={setPracticeScope}
+                  onOpenB2Stats={() => { setStatsInitialScope("b2"); setTab("stats"); }}
+                />
+              )}
+              {tab === "stats" && (
+                <StatsScreen
+                  vocab={activeVocab}
+                  meta={meta}
+                  allVocab={vocab}
+                  initialScope={statsInitialScope}
+                  onOpenB2Practice={() => { setPracticeScope("b2"); setAutoStartDaily(false); setTab("learn"); }}
+                />
+              )}
+            </div>
+            <BottomNav tab={tab} setTab={setTab} dueCount={dueCount} />
+          </>
+        )}
       </div>
     </AppCtx.Provider>
   );

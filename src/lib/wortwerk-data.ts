@@ -122,43 +122,416 @@ export function restoreState(current: any, parsed: any, decisions?: any[]) {
   for (const k of ['xp', 'streak', 'totalStudyTimeMs']) if (k in current.meta || k in parsed.meta) meta[k] = Math.max(current.meta[k] || 0, parsed.meta[k] || 0);
   return { ...res, vocab: res.next, meta, extras: mergeFields(current.extras || {}, parsed.extras), stateExtras: mergeFields(current.stateExtras || {}, parsed.stateExtras) };
 }
-export function makeEvidence(word: Word, correct: boolean, opts: Word) {
-  const mode = opts.mode || 'unknown'; const timestamp = opts.timestamp ?? Date.now();
-  return { id: opts.id || `${word.id}-${timestamp}-${Math.random().toString(36).slice(2)}`, wordId: word.id, timestamp, mode, contextId: opts.contextId || `${mode}:${opts.prompt || word.word}`, context: opts.context || opts.prompt || '', prompt: opts.prompt || '', answer: opts.answer ?? '', correct: mode === 'flashcard' ? null : correct, exact: !!opts.exact, near: opts.status === 'near', hintUsed: !!opts.hintUsed, articleCorrect: opts.articleCorrect ?? !word.article, responseTime: opts.responseTime ?? null, sessionId: opts.sessionId || '', category: mode === 'flashcard' ? 'exposure' : mode === 'mc' ? 'recognition' : ['recall', 'fill', 'context', 'production'].includes(mode) ? 'recall/production' : 'unscored', selfRating: mode === 'flashcard' ? opts.selfRating || (correct ? 'Gut' : 'Nochmal') : null, newContext: !!opts.newContext, verified: mode !== 'production' || opts.verified === true };
+export const MASTERY_MIN_CONTEXTS = 4;
+export const MASTERY_MIN_SUCCESSES = 4;
+export const MASTERY_MIN_ACTIVITIES = 2;
+export const MASTERY_MIN_DAYS = 3;
+export const MASTERY_DELAYED_WINDOWS: readonly [number, number][] = [[1, 2], [3, 5], [7, 14]];
+export const MASTERY_RETAINED_DAYS = 20;
+
+function calendarDayNumber(ts: number): number {
+  const d = new Date(ts);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY);
 }
+
+export function calendarDayDiff(fromTs: number, toTs: number): number {
+  return calendarDayNumber(toTs) - calendarDayNumber(fromTs);
+}
+
+function canonicalContextKey(word: Word, e: any): string {
+  const raw = String(e?.context || e?.prompt || '');
+  if (raw.includes('______') && word?.exercise?.answer) {
+    return normalizedWord(raw.replace('______', String(word.exercise.answer)));
+  }
+  return normalizedWord(raw);
+}
+
+export function isActiveRecallSuccess(word: Word, e: any): boolean {
+  return !!(
+    e &&
+    e.category === 'recall/production' &&
+    e.correct === true &&
+    e.exact === true &&
+    !e.hintUsed &&
+    !e.neutral &&
+    e.status !== 'synonym' &&
+    e.verified !== false &&
+    (!word?.article || e.articleCorrect === true)
+  );
+}
+
+export function makeEvidence(word: Word, correct: boolean, opts: Word) {
+  const mode = opts.mode || 'unknown';
+  const timestamp = opts.timestamp ?? Date.now();
+  const isNeutral = !!(opts.neutral || opts.status === 'synonym');
+  const category = isNeutral
+    ? 'unscored'
+    : mode === 'flashcard'
+      ? 'exposure'
+      : mode === 'mc'
+        ? 'recognition'
+        : ['recall', 'fill', 'context', 'production'].includes(mode)
+          ? 'recall/production'
+          : 'unscored';
+  return {
+    id: opts.id || `${word.id}-${timestamp}-${Math.random().toString(36).slice(2)}`,
+    wordId: word.id,
+    timestamp,
+    mode,
+    contextId: opts.contextId || `${mode}:${opts.prompt || word.word}`,
+    context: opts.context || opts.prompt || '',
+    prompt: opts.prompt || '',
+    answer: opts.answer ?? '',
+    correct: mode === 'flashcard' || isNeutral ? null : correct,
+    exact: isNeutral ? false : !!opts.exact,
+    near: opts.status === 'near',
+    neutral: isNeutral,
+    status: opts.status || '',
+    hintUsed: !!opts.hintUsed,
+    articleCorrect: opts.articleCorrect ?? !word.article,
+    responseTime: opts.responseTime ?? null,
+    sessionId: opts.sessionId || '',
+    category,
+    selfRating: mode === 'flashcard' ? opts.selfRating || (correct ? 'Gut' : 'Nochmal') : null,
+    newContext: !!opts.newContext,
+    verified: mode !== 'production' || opts.verified === true,
+  };
+}
+
 export function mastery(word: Word) {
-  const all = [...(word.evidence || [])].sort((a, b) => a.timestamp - b.timestamp);
-  const meaningful = all.filter((e: any) => e.contextId && e.prompt && e.answer !== '' && e.sessionId && e.category !== 'unscored');
-  // Repeating an identical prompt cannot create a new context, even across sessions.
-  const contextKey = (e: any) => normalizedWord(e.context || e.prompt);
-  const contexts = new Set(meaningful.map(contextKey)).size;
-  const active = meaningful.filter((e: any) => e.category === 'recall/production' && e.correct && e.exact && !e.hintUsed && e.verified !== false && (!word.article || e.articleCorrect === true));
+  const all = [...(word.evidence || [])]
+    .filter((e: any) => e && typeof e.timestamp === 'number' && Number.isFinite(e.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const meaningful = all.filter((e: any) => e.contextId && e.prompt && e.answer !== '' && e.sessionId && e.category !== 'unscored' && !e.neutral && e.status !== 'synonym');
+  // Repeating an identical prompt or simple fill/context duplicate cannot create a new context.
+  const contextKey = (e: any) => canonicalContextKey(word, e);
+  const active = meaningful.filter((e: any) => isActiveRecallSuccess(word, e));
+  const activeContexts = new Set(active.map(contextKey).filter(Boolean)).size;
+  const contexts = activeContexts;
   const successes = new Set(active.map((e: any) => `${e.mode}:${contextKey(e)}`)).size;
   const activities = new Set(active.map((e: any) => e.mode)).size;
   const days = new Set(active.map((e: any) => localDay(e.timestamp))).size;
   const typed = active.some((e: any) => ['recall', 'production'].includes(e.mode));
   const novel = active.some((e: any) => ['context', 'production'].includes(e.mode) && e.newContext && !all.some((p: any) => p.timestamp < e.timestamp && contextKey(p) === contextKey(e)));
-  // Consecutive unassisted exact retrievals on different days, windows 1/3/7 ± tolerance.
+  // Consecutive unassisted exact retrievals on different calendar days: 1–2d, 3–5d, 7–14d.
   const dated = active.filter((e: any, i: number) => !active.slice(0, i).some((p: any) => localDay(p.timestamp) === localDay(e.timestamp)));
-  const targets: [number, number][] = [[0.75, 1.5], [2, 4.5], [6, 9]];
   let delayed = 0;
   let chainEnd = 0;
   for (let start = 0; start < dated.length; start++) {
-    let last = dated[start]; let n = 0;
-    for (const [lo, hi] of targets) { const next = dated.find((e: any) => e.timestamp > last.timestamp && (e.timestamp - last.timestamp) / DAY >= lo && (e.timestamp - last.timestamp) / DAY <= hi); if (!next) break; last = next; n++; }
-    if (n > delayed) { delayed = n; chainEnd = last.timestamp; }
+    let last = dated[start];
+    let n = 0;
+    for (const [lo, hi] of MASTERY_DELAYED_WINDOWS) {
+      const next = dated.find((e: any) => {
+        if (e.timestamp <= last.timestamp) return false;
+        const diff = calendarDayDiff(last.timestamp, e.timestamp);
+        return diff >= lo && diff <= hi;
+      });
+      if (!next) break;
+      last = next;
+      n++;
+    }
+    if (n > delayed || (n === delayed && n === MASTERY_DELAYED_WINDOWS.length && last.timestamp > chainEnd)) {
+      delayed = n;
+      chainEnd = last.timestamp;
+    }
   }
-  const latestFailure = all.filter((e: any) => e.category === 'recall/production' && e.correct === false && !e.hintUsed && all.some((p: any) => p.timestamp <= e.timestamp - 0.75 * DAY && p.correct && p.exact)).at(-1);
+  const latestFailure = all
+    .filter(
+      (e: any) =>
+        e.category === 'recall/production' &&
+        e.correct === false &&
+        !e.neutral &&
+        e.status !== 'synonym' &&
+        all.some((p: any) => p.timestamp < e.timestamp && calendarDayDiff(p.timestamp, e.timestamp) >= 1 && p.correct && p.exact)
+    )
+    .at(-1);
   const failed = !!latestFailure && latestFailure.timestamp >= chainEnd;
-  const requirements = { contexts: contexts >= 7, successes: successes >= 7, activities: activities >= 3, days: days >= 3, typed, novel, delayed: delayed >= 3, review: !failed };
+  const requirements = {
+    contexts: activeContexts >= MASTERY_MIN_CONTEXTS,
+    successes: successes >= MASTERY_MIN_SUCCESSES,
+    activities: activities >= MASTERY_MIN_ACTIVITIES,
+    days: days >= MASTERY_MIN_DAYS,
+    typed,
+    novel,
+    delayed: delayed >= MASTERY_DELAYED_WINDOWS.length,
+    review: !failed,
+  };
   const mastered = Object.values(requirements).every(Boolean);
-  const retained = mastered && active.some((e: any) => e.timestamp >= chainEnd + 20 * DAY) && !failed;
-  const level = retained ? 'Retained' : mastered ? 'Provisionally mastered' : successes >= 3 ? 'Consolidating' : meaningful.length || word.learning?.timesSeen ? 'Learning' : 'New';
-  return { level, mastered, contexts, successes, activities, days, delayed, typed, novel, failed, requirements };
+  const retained =
+    mastered &&
+    active.some((e: any) => e.timestamp > chainEnd && calendarDayDiff(chainEnd, e.timestamp) >= MASTERY_RETAINED_DAYS) &&
+    !failed;
+  const level = retained
+    ? 'Retained'
+    : mastered
+      ? 'Provisionally mastered'
+      : successes >= 3 && activeContexts >= 3
+        ? 'Consolidating'
+        : meaningful.length || word.learning?.timesSeen
+          ? 'Learning'
+          : 'New';
+  return { level, mastered, contexts, activeContexts, successes, activities, days, delayed, typed, novel, failed, requirements };
+}
+
+export type MasteryScheduleStage =
+  | 'needs_active'
+  | 'awaiting_step_1'
+  | 'awaiting_step_2'
+  | 'awaiting_step_3'
+  | 'needs_criteria'
+  | 'awaiting_retention'
+  | 'retention_ready'
+  | 'retained';
+
+export interface MasteryScheduleState {
+  stage: MasteryScheduleStage;
+  inWindow: boolean;
+  daysLeftInWindow: number | null;
+  recommendedDays: number;
+  chainStep: number;
+}
+
+const MASTERY_TARGET_STEP_DAYS: readonly number[] = [1, 3, 8];
+const MASTERY_RETENTION_TARGET_DAYS = 21;
+const MASTERY_RETAINED_MAINTENANCE_DAYS = 30;
+
+export function masteryScheduleState(word: Word, nowTs = Date.now()): MasteryScheduleState {
+  const m = mastery(word);
+  if (m.level === 'Retained') {
+    return {
+      stage: 'retained',
+      inWindow: false,
+      daysLeftInWindow: null,
+      recommendedDays: MASTERY_RETAINED_MAINTENANCE_DAYS,
+      chainStep: MASTERY_DELAYED_WINDOWS.length,
+    };
+  }
+
+  const all = [...(word?.evidence || [])]
+    .filter((e: any) => e && typeof e.timestamp === 'number' && Number.isFinite(e.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const meaningful = all.filter(
+    (e: any) =>
+      e.contextId &&
+      e.prompt &&
+      e.answer !== '' &&
+      e.sessionId &&
+      e.category !== 'unscored' &&
+      !e.neutral &&
+      e.status !== 'synonym'
+  );
+  const active = meaningful.filter((e: any) => isActiveRecallSuccess(word, e));
+  const dated = active.filter(
+    (e: any, i: number) => !active.slice(0, i).some((p: any) => localDay(p.timestamp) === localDay(e.timestamp))
+  );
+
+  const latestFailure = all
+    .filter(
+      (e: any) =>
+        e.category === 'recall/production' &&
+        e.correct === false &&
+        !e.neutral &&
+        e.status !== 'synonym' &&
+        all.some((p: any) => p.timestamp < e.timestamp && calendarDayDiff(p.timestamp, e.timestamp) >= 1 && p.correct && p.exact)
+    )
+    .at(-1);
+
+  if (m.mastered) {
+    // Find latest completed 3-step delayed chain end timestamp
+    let chainEnd = 0;
+    for (let start = 0; start < dated.length; start++) {
+      let last = dated[start];
+      let n = 0;
+      for (const [lo, hi] of MASTERY_DELAYED_WINDOWS) {
+        const next = dated.find((e: any) => {
+          if (e.timestamp <= last.timestamp) return false;
+          const diff = calendarDayDiff(last.timestamp, e.timestamp);
+          return diff >= lo && diff <= hi;
+        });
+        if (!next) break;
+        last = next;
+        n++;
+      }
+      if (n === MASTERY_DELAYED_WINDOWS.length && last.timestamp > chainEnd) {
+        chainEnd = last.timestamp;
+      }
+    }
+    const elapsed = chainEnd ? Math.max(0, calendarDayDiff(chainEnd, nowTs)) : 0;
+    if (elapsed >= MASTERY_RETAINED_DAYS) {
+      return {
+        stage: 'retention_ready',
+        inWindow: true,
+        daysLeftInWindow: null,
+        recommendedDays: 0,
+        chainStep: MASTERY_DELAYED_WINDOWS.length,
+      };
+    }
+    return {
+      stage: 'awaiting_retention',
+      inWindow: false,
+      daysLeftInWindow: null,
+      recommendedDays: Math.max(1, MASTERY_RETENTION_TARGET_DAYS - elapsed),
+      chainStep: MASTERY_DELAYED_WINDOWS.length,
+    };
+  }
+
+  // Only consider active dated successes after any unrecovered failure
+  const failureCutoff = m.failed && latestFailure ? latestFailure.timestamp : -Infinity;
+  const candidateDated = dated.filter((e: any) => e.timestamp > failureCutoff);
+  if (!candidateDated.length) {
+    return {
+      stage: 'needs_active',
+      inWindow: false,
+      daysLeftInWindow: null,
+      recommendedDays: 1,
+      chainStep: 0,
+    };
+  }
+
+  // Evaluate every candidate chain starting from candidateDated and keep the most advanced chain still alive at nowTs.
+  let best: { n: number; lastTs: number } | null = null;
+  for (let start = 0; start < candidateDated.length; start++) {
+    let last = candidateDated[start];
+    let n = 0;
+    for (const [lo, hi] of MASTERY_DELAYED_WINDOWS) {
+      const next = candidateDated.find((e: any) => {
+        if (e.timestamp <= last.timestamp) return false;
+        const diff = calendarDayDiff(last.timestamp, e.timestamp);
+        return diff >= lo && diff <= hi;
+      });
+      if (!next) break;
+      last = next;
+      n++;
+    }
+    const elapsed = calendarDayDiff(last.timestamp, nowTs);
+    if (n < MASTERY_DELAYED_WINDOWS.length) {
+      const [, hi] = MASTERY_DELAYED_WINDOWS[n]!;
+      if (elapsed > hi) continue; // Window already expired
+    }
+    if (!best || n > best.n || (n === best.n && last.timestamp > best.lastTs)) {
+      best = { n, lastTs: last.timestamp };
+    }
+  }
+
+  if (!best) {
+    return {
+      stage: 'needs_active',
+      inWindow: false,
+      daysLeftInWindow: null,
+      recommendedDays: 1,
+      chainStep: 0,
+    };
+  }
+
+  if (best.n >= MASTERY_DELAYED_WINDOWS.length) {
+    // Delayed chain is already satisfied, but another criterion (contexts/successes/recall/novel) is still missing.
+    return {
+      stage: 'needs_criteria',
+      inWindow: true,
+      daysLeftInWindow: null,
+      recommendedDays: 1,
+      chainStep: MASTERY_DELAYED_WINDOWS.length,
+    };
+  }
+
+  const [lo, hi] = MASTERY_DELAYED_WINDOWS[best.n]!;
+  const targetDays = MASTERY_TARGET_STEP_DAYS[best.n] ?? lo;
+  const elapsed = Math.max(0, calendarDayDiff(best.lastTs, nowTs));
+  const stage: MasteryScheduleStage =
+    best.n === 0 ? 'awaiting_step_1' : best.n === 1 ? 'awaiting_step_2' : 'awaiting_step_3';
+
+  if (elapsed >= lo && elapsed <= hi) {
+    return {
+      stage,
+      inWindow: true,
+      daysLeftInWindow: hi - elapsed,
+      recommendedDays: 0,
+      chainStep: best.n,
+    };
+  }
+
+  return {
+    stage,
+    inWindow: false,
+    daysLeftInWindow: null,
+    recommendedDays: Math.max(1, targetDays - elapsed),
+    chainStep: best.n,
+  };
+}
+
+export function computeAlignedNextReview(
+  word: Word,
+  correct: boolean,
+  fallbackMs: number,
+  nowTs = Date.now()
+): number {
+  if (!correct) return nowTs + DAY;
+  if (isPreviouslyKnown(word)) return nowTs + Math.max(DAY, fallbackMs);
+  const sched = masteryScheduleState(word, nowTs);
+  if (sched.inWindow && sched.recommendedDays === 0) {
+    return nowTs;
+  }
+  const alignedMs = sched.recommendedDays * DAY;
+  if (sched.stage === 'retained') {
+    return nowTs + Math.max(alignedMs, fallbackMs);
+  }
+  return nowTs + alignedMs;
+}
+
+export const PREVIOUSLY_KNOWN_STATUS = 'previously_known' as const;
+export const PREVIOUSLY_KNOWN_TEST_RATIO = 0.1;
+export const PREVIOUSLY_KNOWN_DEMOTE_THRESHOLD = 2;
+
+export function isPreviouslyKnown(word: Word): boolean {
+  return word?.status === PREVIOUSLY_KNOWN_STATUS;
+}
+
+export function isMasteredThroughWortwerk(word: Word): boolean {
+  return !isPreviouslyKnown(word) && mastery(word).mastered;
+}
+
+export function applyPreviouslyKnownSelection(vocab: Word[], selectedIds: Iterable<string>): Word[] {
+  const chosen = selectedIds instanceof Set ? selectedIds : new Set(selectedIds);
+  return (vocab || []).map((w) => {
+    const wantKnown = chosen.has(w.id);
+    const currentlyKnown = isPreviouslyKnown(w);
+    if (wantKnown && !currentlyKnown) {
+      return { ...w, status: PREVIOUSLY_KNOWN_STATUS, previouslyKnownMistakes: 0 };
+    }
+    if (!wantKnown && currentlyKnown) {
+      const next = { ...w };
+      delete next.status;
+      delete next.previouslyKnownMistakes;
+      return next;
+    }
+    return w;
+  });
+}
+
+export function updatePreviouslyKnownOnAnswer(
+  word: Word,
+  correct: boolean,
+  opts?: { neutral?: boolean; status?: string; exact?: boolean; threshold?: number }
+): Word {
+  if (!isPreviouslyKnown(word)) return word;
+  if (opts?.neutral || opts?.status === 'synonym') return word;
+  const threshold = Math.max(1, opts?.threshold ?? PREVIOUSLY_KNOWN_DEMOTE_THRESHOLD);
+  if (correct) {
+    if (!word.previouslyKnownMistakes) return word;
+    return { ...word, previouslyKnownMistakes: 0 };
+  }
+  const mistakes = (Number(word.previouslyKnownMistakes) || 0) + 1;
+  if (mistakes >= threshold) {
+    const next = { ...word };
+    delete next.status;
+    delete next.previouslyKnownMistakes;
+    return next;
+  }
+  return { ...word, previouslyKnownMistakes: mistakes };
 }
 export function localDay(ts: number) { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 export function todayAccuracy(word: Word, timestamp = Date.now()) {
-  const scored = (word.evidence || []).filter((e: any) => localDay(e.timestamp) === localDay(timestamp) && ['recognition', 'recall/production'].includes(e.category));
+  const scored = (word.evidence || []).filter((e: any) => !e?.neutral && e?.status !== 'synonym' && localDay(e.timestamp) === localDay(timestamp) && ['recognition', 'recall/production'].includes(e.category));
   return { attempts: scored.length, pct: scored.length ? scored.filter((e: any) => e.correct && e.exact && !e.hintUsed).length / scored.length : 0 };
 }
 export function isMasteredToday(word: Word, timestamp = Date.now()) {
@@ -416,19 +789,15 @@ export function wordAssimilationTimestamp(word: Word, criterion: LearningRateCri
   }
 
   if (criterion === 'assimilated') {
-    const contextKey = (e: any) => normalizedWord(e.context || e.prompt);
     const activeKeys = new Set<string>();
+    const activeContextKeys = new Set<string>();
     for (const e of meaningful) {
-      if (
-        e.category === 'recall/production' &&
-        e.correct &&
-        e.exact &&
-        !e.hintUsed &&
-        e.verified !== false &&
-        (!word.article || e.articleCorrect === true)
-      ) {
-        activeKeys.add(`${e.mode}:${contextKey(e)}`);
-        if (activeKeys.size >= 3) return e.timestamp;
+      if (isActiveRecallSuccess(word, e)) {
+        const ck = canonicalContextKey(word, e);
+        if (!ck) continue;
+        activeKeys.add(`${e.mode}:${ck}`);
+        activeContextKeys.add(ck);
+        if (activeKeys.size >= 3 && activeContextKeys.size >= 3) return e.timestamp;
       }
     }
     return null;
@@ -472,8 +841,10 @@ export function learningRate30d(
   }
 
   let totalReachedAllTime = 0;
+  let eligibleTotal = 0;
   for (const w of vocab || []) {
-    if (!w) continue;
+    if (!w || isPreviouslyKnown(w)) continue;
+    eligibleTotal++;
     const ts = wordAssimilationTimestamp(w, criterion);
     if (ts == null) continue;
     totalReachedAllTime++;
@@ -507,7 +878,7 @@ export function learningRate30d(
   const activeDayRate = activeDays > 0 ? Number((totalWords / activeDays).toFixed(2)) : 0;
   const last7dCount = days.slice(-7).reduce((sum, d) => sum + d.count, 0);
   const prev7dCount = days.slice(-14, -7).reduce((sum, d) => sum + d.count, 0);
-  const remainingWords = Math.max(0, (vocab || []).length - totalReachedAllTime);
+  const remainingWords = Math.max(0, eligibleTotal - totalReachedAllTime);
   const estimatedDaysRemaining = ratePerDay > 0 && remainingWords > 0 ? Math.ceil(remainingWords / ratePerDay) : null;
 
   return {
@@ -571,44 +942,247 @@ export function hasFillExercise(word: Word): boolean {
   return !!(ex && typeof ex.sentence === 'string' && ex.sentence.includes('______') && ex.answer);
 }
 
+const SEPARABLE_PREFIXES = [
+  'zusammen', 'wieder', 'zurück', 'weiter', 'vorbei', 'heraus', 'herein', 'hinaus', 'hinein',
+  'voraus', 'dazu', 'fest', 'frei', 'heim', 'hoch', 'klar', 'teil', 'nach', 'über', 'unter',
+  'durch', 'statt', 'vor', 'weg', 'aus', 'auf', 'ein', 'mit', 'hin', 'her', 'los', 'bei',
+  'ab', 'an', 'um', 'zu',
+] as const;
+
+function buildSingleBareMatchers(bare: string): RegExp[] {
+  if (!bare) return [];
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pats: RegExp[] = [
+    new RegExp(
+      `(?<![A-Za-zÄÖÜäöüß])(${esc(bare)}(?:e|en|er|es|em|n|s|t|st|te|ten)?)(?![A-Za-zÄÖÜäöüß])`,
+      'i'
+    ),
+  ];
+  const lowerBare = bare.toLocaleLowerCase('de');
+  if (!bare.includes(' ')) {
+    if (lowerBare.endsWith('en') && bare.length > 4) {
+      const stem = bare.slice(0, -2);
+      pats.push(
+        new RegExp(
+          `(?<![A-Za-zÄÖÜäöüß])((?:ge)?${esc(stem)}(?:e|st|est|t|et|en|te|ten|test|tet|ete|eten|etest|etet|end|ende|enden|endes|endem|er|es|em)?)(?![A-Za-zÄÖÜäöüß])`,
+          'i'
+        )
+      );
+      for (const prefix of SEPARABLE_PREFIXES) {
+        if (lowerBare.startsWith(prefix) && stem.length > prefix.length + 2) {
+          const rest = stem.slice(prefix.length);
+          pats.push(
+            new RegExp(
+              `(?<![A-Za-zÄÖÜäöüß])(${esc(prefix)}(?:ge${esc(rest)}(?:t|et|en|e|er|es|em)?|zu${esc(rest)}en))(?![A-Za-zÄÖÜäöüß])`,
+              'i'
+            )
+          );
+          break;
+        }
+      }
+    } else if (lowerBare.endsWith('n') && bare.length > 4) {
+      const stem = bare.slice(0, -1);
+      pats.push(
+        new RegExp(
+          `(?<![A-Za-zÄÖÜäöüß])((?:ge)?${esc(stem)}(?:e|st|t|n|te|ten|et|ete|eten)?)(?![A-Za-zÄÖÜäöüß])`,
+          'i'
+        )
+      );
+    }
+  }
+  return pats;
+}
+
+function buildContextMatchers(word: Word): RegExp[] {
+  const raw = String(word?.word || '').trim();
+  if (!raw) return [];
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stripPrefixes = (s: string) =>
+    s
+      .trim()
+      .replace(/^(?:der\/die|die\/der|der|die|das)\s+/i, '')
+      .replace(/^sich(?:\s+(?:etwas|jemanden|jemandem))?\s+/i, '')
+      .trim();
+  const variants = raw.includes('/')
+    ? raw
+        .replace(/^(?:der\/die|die\/der)\s+/i, '')
+        .split('/')
+        .map(stripPrefixes)
+        .filter((v) => v.length >= 2)
+    : [stripPrefixes(raw)].filter(Boolean);
+
+  const pats: RegExp[] = [];
+  for (const v of variants) {
+    pats.push(...buildSingleBareMatchers(v));
+  }
+  if (word?.plural && typeof word.plural === 'string') {
+    const pl = word.plural.replace(/^(die|der|das)\s+/i, '').trim();
+    if (pl.length >= 3 && !pl.startsWith('-') && !pl.includes(' ')) {
+      pats.push(
+        new RegExp(`(?<![A-Za-zÄÖÜäöüß])(${esc(pl)}(?:n|s|en)?)(?![A-Za-zÄÖÜäöüß])`, 'i')
+      );
+    }
+  }
+  return pats;
+}
+
+export function findAllContextExamples(
+  word: Word
+): { sentence: string; answer: string; context: string; key: string }[] {
+  const pats = buildContextMatchers(word);
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const fillFullKey = hasFillExercise(word)
+    ? normalizedWord(String(word.exercise.sentence).replace(/_{3,}/g, String(word.exercise.answer)))
+    : '';
+  const examples = Array.isArray(word?.examples) ? word.examples : [];
+  const seenKeys = new Set<string>();
+  const out: { sentence: string; answer: string; context: string; key: string }[] = [];
+
+  for (const ex of examples) {
+    const de = typeof ex?.de === 'string' ? ex.de.trim() : '';
+    if (!de) continue;
+    const key = normalizedWord(de);
+    if (!key || seenKeys.has(key) || (fillFullKey && key === fillFullKey)) continue;
+
+    // Optional explicit target token/phrase (useful for multi-word expressions)
+    if (typeof ex?.target === 'string' && ex.target.trim()) {
+      const targetPat = new RegExp(
+        `(?<![A-Za-zÄÖÜäöüß])(${esc(ex.target.trim())})(?![A-Za-zÄÖÜäöüß])`,
+        'i'
+      );
+      const tMatch = de.match(targetPat);
+      if (tMatch && tMatch[1]) {
+        seenKeys.add(key);
+        out.push({
+          sentence: de.replace(targetPat, '______'),
+          answer: tMatch[1],
+          context: de,
+          key,
+        });
+        continue;
+      }
+    }
+
+    for (const pat of pats) {
+      const match = de.match(pat);
+      if (match && match[1]) {
+        seenKeys.add(key);
+        out.push({
+          sentence: de.replace(pat, '______'),
+          answer: match[1],
+          context: de,
+          key,
+        });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+export function mergeSeedEnrichments(stored: Word, seed: Word): Word {
+  if (!seed) return stored;
+  const out: Word = { ...stored };
+  if (!out.memoryHook && seed.memoryHook) out.memoryHook = seed.memoryHook;
+  if (!out.funFact && seed.funFact) out.funFact = seed.funFact;
+  if (!out.etymology && seed.etymology) out.etymology = seed.etymology;
+
+  const existingExamples = Array.isArray(out.examples) ? out.examples : [];
+  const seedExamples = Array.isArray(seed.examples) ? seed.examples : [];
+  if (seedExamples.length) {
+    const existingKeys = new Set(
+      existingExamples
+        .map((e: any) => (typeof e?.de === 'string' ? normalizedWord(e.de) : ''))
+        .filter(Boolean)
+    );
+    const mergedExamples = existingExamples.map((ex: any) => {
+      if (ex?.target || typeof ex?.de !== 'string') return ex;
+      const exKey = normalizedWord(ex.de);
+      const seedMatch = seedExamples.find(
+        (se: any) => typeof se?.de === 'string' && normalizedWord(se.de) === exKey && se.target
+      );
+      return seedMatch ? { ...ex, target: seedMatch.target } : ex;
+    });
+    for (const se of seedExamples) {
+      const key = typeof se?.de === 'string' ? normalizedWord(se.de) : '';
+      if (key && !existingKeys.has(key)) {
+        existingKeys.add(key);
+        mergedExamples.push(se);
+      }
+    }
+    if (mergedExamples.length !== existingExamples.length || JSON.stringify(mergedExamples) !== JSON.stringify(existingExamples)) {
+      out.examples = mergedExamples;
+    }
+  }
+
+  const storedHasValidFill = !!(
+    out.exercise &&
+    typeof out.exercise.sentence === 'string' &&
+    out.exercise.sentence.includes('______') &&
+    out.exercise.answer
+  );
+  if (!storedHasValidFill && seed.exercise && seed.exercise.sentence && seed.exercise.answer) {
+    out.exercise = { ...seed.exercise };
+  }
+  return out;
+}
+
 export function findContextExample(
   word: Word
 ): { sentence: string; answer: string; context: string; isNovel: boolean } | null {
-  const bare = String(word?.word || '')
-    .trim()
-    .replace(/^(der|die|das)\s+/i, '')
-    .replace(/^sich\s+/i, '')
-    .trim();
-  if (!bare) return null;
-  const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const matcher = new RegExp(
-    `(?<![A-Za-zÄÖÜäöüß])(${escaped}(?:e|en|er|es|em|n|s|t|st|te|ten)?)(?![A-Za-zÄÖÜäöüß])`,
-    'i'
-  );
-  const examples = Array.isArray(word?.examples) ? word.examples : [];
-  const seenContexts = new Set(
-    (Array.isArray(word?.evidence) ? word.evidence : [])
-      .map((e: any) => e?.context)
-      .filter((c: any) => typeof c === 'string')
-  );
+  const candidates = findAllContextExamples(word);
+  if (!candidates.length) return null;
 
-  let fallback: { sentence: string; answer: string; context: string; isNovel: boolean } | null = null;
-  for (const ex of examples) {
-    const de = typeof ex?.de === 'string' ? ex.de : '';
-    if (!de) continue;
-    const match = de.match(matcher);
-    if (!match || !match[1]) continue;
-    const answer = match[1];
-    const candidate = {
-      sentence: de.replace(matcher, '______'),
-      answer,
-      context: de,
-      isNovel: !seenContexts.has(de),
-    };
-    if (candidate.isNovel) return candidate;
-    if (!fallback) fallback = candidate;
+  const evidenceList = Array.isArray(word?.evidence) ? word.evidence : [];
+  const seenContexts = new Set<string>();
+  const succeededContexts = new Set<string>();
+  const lastSeenByKey = new Map<string, number>();
+
+  for (const e of evidenceList) {
+    const ck = canonicalContextKey(word, e);
+    if (!ck) continue;
+    seenContexts.add(ck);
+    if (typeof e?.timestamp === 'number' && Number.isFinite(e.timestamp)) {
+      const prev = lastSeenByKey.get(ck) ?? -Infinity;
+      if (e.timestamp > prev) lastSeenByKey.set(ck, e.timestamp);
+    }
+    if (isActiveRecallSuccess(word, e)) {
+      succeededContexts.add(ck);
+    }
   }
-  return fallback;
+
+  // 1. Prefer a genuinely novel example never seen in evidence
+  const novelCandidate = candidates.find((c) => !seenContexts.has(c.key));
+  if (novelCandidate) {
+    return {
+      sentence: novelCandidate.sentence,
+      answer: novelCandidate.answer,
+      context: novelCandidate.context,
+      isNovel: true,
+    };
+  }
+
+  // 2. Otherwise prefer a real example not yet actively succeeded
+  const unsucceeded = candidates.find((c) => !succeededContexts.has(c.key));
+  if (unsucceeded) {
+    return {
+      sentence: unsucceeded.sentence,
+      answer: unsucceeded.answer,
+      context: unsucceeded.context,
+      isNovel: false,
+    };
+  }
+
+  // 3. Fallback: least-recently-used real example
+  const oldest = [...candidates].sort(
+    (a, b) => (lastSeenByKey.get(a.key) ?? 0) - (lastSeenByKey.get(b.key) ?? 0)
+  )[0]!;
+  return {
+    sentence: oldest.sentence,
+    answer: oldest.answer,
+    context: oldest.context,
+    isNovel: false,
+  };
 }
 
 export function eligibleGamesForWord(
@@ -642,19 +1216,101 @@ export function buildPracticeQuestion(word: Word, requestedGame: PracticeGame): 
   return { word, type: t };
 }
 
+export function preferredActiveGameForWord(
+  word: Word,
+  allowedGames: readonly PracticeGame[] = ['recall', 'fill', 'context']
+): PracticeGame {
+  const activeAllowed = allowedGames.filter((g) => g === 'recall' || g === 'fill' || g === 'context');
+  const canRecall = activeAllowed.includes('recall');
+  const canFill = activeAllowed.includes('fill') && hasFillExercise(word);
+  const ctxEx = activeAllowed.includes('context') ? findContextExample(word) : null;
+  const canContext = ctxEx !== null;
+
+  const m = mastery(word);
+  // 1. Prioritize missing typed Recall criterion
+  if (!m.typed && canRecall) return 'recall';
+  // 2. Prioritize genuinely novel Context example when needed or available
+  if (!m.novel && ctxEx?.isNovel) return 'context';
+
+  // 3. Check whether the Fill context has already been actively succeeded
+  const evidenceList = Array.isArray(word?.evidence) ? word.evidence : [];
+  const activeSucceededKeys = new Set(
+    evidenceList
+      .filter((e: any) => isActiveRecallSuccess(word, e))
+      .map((e: any) => canonicalContextKey(word, e))
+      .filter(Boolean)
+  );
+  if (canFill) {
+    const fillKey = normalizedWord(
+      String(word.exercise.sentence).replace(/_{3,}/g, String(word.exercise.answer))
+    );
+    if (fillKey && !activeSucceededKeys.has(fillKey)) return 'fill';
+  }
+  if (ctxEx?.isNovel) return 'context';
+  if (canContext && ctxEx) {
+    const ctxKey = normalizedWord(ctxEx.context);
+    if (ctxKey && !activeSucceededKeys.has(ctxKey)) return 'context';
+  }
+  if (canRecall) return 'recall';
+  if (canContext) return 'context';
+  if (canFill) return 'fill';
+  return 'recall';
+}
+
+export function sortWordsByReviewPriority(
+  words: Word[],
+  nowTs = Date.now(),
+  rng: () => number = secureRandom
+): Word[] {
+  if (!words || !words.length) return [];
+  const shuffled = trueShuffle(words, rng);
+  const urgencyScore = (w: Word): number => {
+    const sched = masteryScheduleState(w, nowTs);
+    if (sched.inWindow) {
+      if (sched.daysLeftInWindow !== null) {
+        // Expiring delayed window: 0 days left -> score 0, 1 day left -> score 1, ...
+        return sched.daysLeftInWindow;
+      }
+      if (sched.stage === 'retention_ready') return 20;
+      if (sched.stage === 'needs_criteria') return 25;
+    }
+    return 100 + Math.min(10, Number(w?.learning?.confidence ?? 0));
+  };
+  return shuffled
+    .map((word, index) => ({ word, score: urgencyScore(word), index }))
+    .sort((a, b) => a.score - b.score || a.index - b.index)
+    .map((item) => item.word);
+}
+
 export function buildAllGamesQuestions(
   words: Word[],
   opts?: {
     games?: readonly PracticeGame[];
     rng?: () => number;
     shuffleOrder?: boolean;
+    prioritizeMasteryWindows?: boolean;
+    nowTs?: number;
   }
 ): PracticeQuestion[] {
   if (!words || !words.length) return [];
   const rng = opts?.rng ?? secureRandom;
+  const nowTs = opts?.nowTs ?? Date.now();
   const candidateGames = opts?.games?.length ? [...opts.games] : [...ALL_PRACTICE_GAMES];
   const assigned: (PracticeGame | null)[] = words.map(() => null);
   const unassigned = new Set<number>(words.map((_, i) => i));
+
+  // When prioritizing mastery windows (daily/mix review), lock words inside an open mastery/retention window
+  // to an active recall exercise that advances their Evidence Ledger.
+  if (opts?.prioritizeMasteryWindows) {
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i]!;
+      if (isPreviouslyKnown(w)) continue;
+      if (masteryScheduleState(w, nowTs).inWindow) {
+        assigned[i] = preferredActiveGameForWord(w, candidateGames);
+        unassigned.delete(i);
+      }
+    }
+  }
 
   // Assign rarer/constrained games first (context, fill) in random order, then remaining games in random order,
   // guaranteeing that every eligible game appears whenever enough eligible words exist.
@@ -668,6 +1324,7 @@ export function buildAllGamesQuestions(
   );
 
   for (const game of [...constrained, ...open]) {
+    if (assigned.includes(game)) continue;
     const eligibleIndices = [...unassigned].filter((idx) => {
       const w = words[idx];
       if (game === 'fill') return hasFillExercise(w);
@@ -699,7 +1356,28 @@ export function pickRandomTestWords(
   rng: () => number = secureRandom
 ): Word[] {
   if (!pool || !pool.length || count <= 0) return [];
-  return trueShuffle(pool, rng).slice(0, Math.min(count, pool.length));
+  const totalCount = Math.min(count, pool.length);
+  const regular = pool.filter((w) => !isPreviouslyKnown(w));
+  const known = pool.filter(isPreviouslyKnown);
+  if (!known.length || !regular.length) {
+    return trueShuffle(pool, rng).slice(0, totalCount);
+  }
+
+  // Reserve ~10% of test questions for previously_known words
+  const exactKnown = totalCount * PREVIOUSLY_KNOWN_TEST_RATIO;
+  const baseKnown = Math.floor(exactKnown);
+  const fracKnown = exactKnown - baseKnown;
+  const rawRoll = rng();
+  const clampedRoll = Number.isFinite(rawRoll) ? Math.min(Math.max(rawRoll, 0), 0.999999999999) : 0;
+  let desiredKnown = baseKnown + (clampedRoll < fracKnown ? 1 : 0);
+  desiredKnown = Math.min(desiredKnown, known.length);
+
+  const regularCount = Math.min(regular.length, totalCount - desiredKnown);
+  const knownCount = Math.min(known.length, totalCount - regularCount);
+
+  const pickedRegular = trueShuffle(regular, rng).slice(0, regularCount);
+  const pickedKnown = trueShuffle(known, rng).slice(0, knownCount);
+  return trueShuffle([...pickedRegular, ...pickedKnown], rng);
 }
 
 export type B2StageKey = 'New' | 'Learning' | 'Consolidating' | 'Provisionally mastered' | 'Retained';
@@ -754,9 +1432,13 @@ export type B2WordSnapshot = {
 
 export type B2ProgressSummary = {
   total: number;
+  previouslyKnown: number;
   due: number;
   started: number;
+  learning: number;
+  consolidating: number;
   assimilated: number;
+  provisionallyMastered: number;
   mastered: number;
   retained: number;
   typedVerified: number;
@@ -764,6 +1446,9 @@ export type B2ProgressSummary = {
   evidenceAttempts: number;
   scoredAttempts: number;
   evidenceAccuracy: number;
+  activeRecallAttempts: number;
+  activeRecallExact: number;
+  activeRecallAccuracy: number;
   avgReadinessPct: number;
   stages: Record<B2StageKey, number>;
   byGame: B2GameMetric[];
@@ -779,6 +1464,89 @@ const B2_GAME_LABELS: Record<PracticeGame, string> = {
   context: 'Συμφραζόμενο',
   recall: 'Γράψιμο',
 };
+
+export type VocabProgressStats = {
+  total: number;
+  previouslyKnown: number;
+  newCount: number;
+  learning: number;
+  consolidating: number;
+  provisionallyMastered: number;
+  retained: number;
+  mastered: number;
+  typedVerified: number;
+  due: number;
+  overallScored: number;
+  overallCorrect: number;
+  overallAccuracy: number | null;
+  activeRecallAttempts: number;
+  activeRecallExact: number;
+  activeRecallAccuracy: number | null;
+};
+
+export function vocabProgressStats(vocab: Word[] = [], nowTs = Date.now()): VocabProgressStats {
+  let previouslyKnown = 0;
+  let newCount = 0;
+  let learning = 0;
+  let consolidating = 0;
+  let provisionallyMastered = 0;
+  let retained = 0;
+  let typedVerified = 0;
+  let due = 0;
+  let overallScored = 0;
+  let overallCorrect = 0;
+  let activeRecallAttempts = 0;
+  let activeRecallExact = 0;
+
+  for (const w of Array.isArray(vocab) ? vocab : []) {
+    if (!w) continue;
+    const prevKnown = isPreviouslyKnown(w);
+    if (prevKnown) {
+      previouslyKnown++;
+    } else {
+      const m = mastery(w);
+      if (m.level === 'Retained') retained++;
+      else if (m.level === 'Provisionally mastered') provisionallyMastered++;
+      else if (m.level === 'Consolidating') consolidating++;
+      else if (m.level === 'Learning') learning++;
+      else newCount++;
+      if (m.typed) typedVerified++;
+      if (!w?.learning?.nextReview || w.learning.nextReview <= nowTs) due++;
+    }
+
+    for (const e of Array.isArray(w.evidence) ? w.evidence : []) {
+      if (!e || e.category === 'unscored' || e.neutral || e.status === 'synonym') continue;
+      if (e.category === 'recognition' || e.category === 'recall/production') {
+        overallScored++;
+        if (e.correct) overallCorrect++;
+      }
+      if (e.category === 'recall/production') {
+        activeRecallAttempts++;
+        if (isActiveRecallSuccess(w, e)) activeRecallExact++;
+      }
+    }
+  }
+
+  return {
+    total: Array.isArray(vocab) ? vocab.length : 0,
+    previouslyKnown,
+    newCount,
+    learning,
+    consolidating,
+    provisionallyMastered,
+    retained,
+    mastered: provisionallyMastered + retained,
+    typedVerified,
+    due,
+    overallScored,
+    overallCorrect,
+    overallAccuracy: overallScored > 0 ? Math.round((overallCorrect / overallScored) * 100) : null,
+    activeRecallAttempts,
+    activeRecallExact,
+    activeRecallAccuracy:
+      activeRecallAttempts > 0 ? Math.round((activeRecallExact / activeRecallAttempts) * 100) : null,
+  };
+}
 
 export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2ProgressSummary {
   const b2Words = filterVocabByPracticeScope(vocab, 'b2');
@@ -819,9 +1587,13 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
     dailyByDate.set(iso, pt);
   }
 
+  let previouslyKnown = 0;
   let due = 0;
   let started = 0;
+  let learning = 0;
+  let consolidating = 0;
   let assimilated = 0;
+  let provisionallyMastered = 0;
   let mastered = 0;
   let retained = 0;
   let typedVerified = 0;
@@ -829,25 +1601,41 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
   let evidenceAttempts = 0;
   let scoredAttempts = 0;
   let scoredCorrect = 0;
+  let activeRecallAttempts = 0;
+  let activeRecallExact = 0;
   let readinessSum = 0;
+  let learningB2Count = 0;
 
   const words: B2WordSnapshot[] = [];
 
   for (const w of b2Words) {
+    const prevKnown = isPreviouslyKnown(w);
+    if (prevKnown) previouslyKnown++;
+    else learningB2Count++;
     const m = mastery(w);
     const level = m.level as B2StageKey;
-    stages[level] = (stages[level] || 0) + 1;
+    const isWordMastered = !prevKnown && m.mastered;
+    const isWordRetained = !prevKnown && level === 'Retained';
+    const isWordProvMastered = !prevKnown && level === 'Provisionally mastered';
+    const isWordConsolidating = !prevKnown && level === 'Consolidating';
+    const isWordLearning = !prevKnown && level === 'Learning';
+    if (!prevKnown) {
+      stages[level] = (stages[level] || 0) + 1;
+    }
 
-    const isWordDue = !w?.learning?.nextReview || w.learning.nextReview <= nowTs;
-    const isWordStarted = level !== 'New';
-    const isWordAssimilated = m.mastered || level === 'Consolidating';
+    const isWordDue = !prevKnown && (!w?.learning?.nextReview || w.learning.nextReview <= nowTs);
+    const isWordStarted = !prevKnown && level !== 'New';
+    const isWordAssimilated = !prevKnown && (m.mastered || level === 'Consolidating');
     if (isWordDue) due++;
     if (isWordStarted) started++;
+    if (isWordLearning) learning++;
+    if (isWordConsolidating) consolidating++;
     if (isWordAssimilated) assimilated++;
-    if (m.mastered) mastered++;
-    if (level === 'Retained') retained++;
-    if (m.typed) typedVerified++;
-    if (m.novel) novelVerified++;
+    if (isWordProvMastered) provisionallyMastered++;
+    if (isWordMastered) mastered++;
+    if (isWordRetained) retained++;
+    if (!prevKnown && m.typed) typedVerified++;
+    if (!prevKnown && m.novel) novelVerified++;
 
     const positiveReqs = [
       m.requirements.contexts,
@@ -860,21 +1648,21 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
     ];
     const criteriaMet = positiveReqs.filter(Boolean).length;
     const rawReadiness =
-      (Math.min(m.contexts, 7) / 7 +
-        Math.min(m.successes, 7) / 7 +
-        Math.min(m.activities, 3) / 3 +
-        Math.min(m.days, 3) / 3 +
-        Math.min(m.delayed, 3) / 3 +
+      (Math.min(m.contexts, MASTERY_MIN_CONTEXTS) / MASTERY_MIN_CONTEXTS +
+        Math.min(m.successes, MASTERY_MIN_SUCCESSES) / MASTERY_MIN_SUCCESSES +
+        Math.min(m.activities, MASTERY_MIN_ACTIVITIES) / MASTERY_MIN_ACTIVITIES +
+        Math.min(m.days, MASTERY_MIN_DAYS) / MASTERY_MIN_DAYS +
+        Math.min(m.delayed, MASTERY_DELAYED_WINDOWS.length) / MASTERY_DELAYED_WINDOWS.length +
         (m.typed ? 1 : 0) +
         (m.novel ? 1 : 0)) /
       7;
-    const readinessPct = m.mastered ? 100 : Math.min(95, Math.round(rawReadiness * 100));
-    readinessSum += readinessPct;
+    const readinessPct = prevKnown ? 0 : isWordMastered ? 100 : Math.min(95, Math.round(rawReadiness * 100));
+    if (!prevKnown) readinessSum += readinessPct;
 
     const posKey = ['Nomen', 'Verb', 'Adjektiv'].includes(w.type) ? w.type : 'Sonstiges';
     const posBucket = posMap.get(posKey) || { total: 0, mastered: 0, assimilated: 0, started: 0 };
     posBucket.total += 1;
-    if (m.mastered) posBucket.mastered += 1;
+    if (isWordMastered) posBucket.mastered += 1;
     if (isWordAssimilated) posBucket.assimilated += 1;
     if (isWordStarted) posBucket.started += 1;
     posMap.set(posKey, posBucket);
@@ -884,7 +1672,7 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
     let wordAttempts = 0;
 
     for (const e of Array.isArray(w.evidence) ? w.evidence : []) {
-      if (!e || e.category === 'unscored') continue;
+      if (!e || e.category === 'unscored' || e.neutral || e.status === 'synonym') continue;
       evidenceAttempts++;
       wordAttempts++;
 
@@ -893,7 +1681,9 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
         gameBuckets[mode].attempts += 1;
         if (mode === 'flashcard') {
           if (e.selfRating !== 'Nochmal') gameBuckets[mode].correct += 1;
-        } else if (e.correct && !e.hintUsed) {
+        } else if (mode === 'mc') {
+          if (e.correct && !e.hintUsed) gameBuckets[mode].correct += 1;
+        } else if (isActiveRecallSuccess(w, e)) {
           gameBuckets[mode].correct += 1;
         }
       }
@@ -906,6 +1696,11 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
           scoredCorrect++;
           wordCorrect++;
         }
+      }
+
+      if (e.category === 'recall/production') {
+        activeRecallAttempts++;
+        if (isActiveRecallSuccess(w, e)) activeRecallExact++;
       }
 
       if (typeof e.timestamp === 'number' && Number.isFinite(e.timestamp)) {
@@ -928,7 +1723,7 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
       greek: list(w.meaning?.greek).filter(Boolean).slice(0, 2).join(', '),
       type: posKey,
       level,
-      mastered: m.mastered,
+      mastered: isWordMastered,
       assimilated: isWordAssimilated,
       due: isWordDue,
       failed: m.failed,
@@ -976,9 +1771,13 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
 
   return {
     total: b2Words.length,
+    previouslyKnown,
     due,
     started,
+    learning,
+    consolidating,
     assimilated,
+    provisionallyMastered,
     mastered,
     retained,
     typedVerified,
@@ -986,11 +1785,306 @@ export function b2ProgressSummary(vocab: Word[] = [], nowTs = Date.now()): B2Pro
     evidenceAttempts,
     scoredAttempts,
     evidenceAccuracy: scoredAttempts > 0 ? Math.round((scoredCorrect / scoredAttempts) * 100) : 0,
-    avgReadinessPct: b2Words.length > 0 ? Math.round(readinessSum / b2Words.length) : 0,
+    activeRecallAttempts,
+    activeRecallExact,
+    activeRecallAccuracy:
+      activeRecallAttempts > 0 ? Math.round((activeRecallExact / activeRecallAttempts) * 100) : 0,
+    avgReadinessPct: learningB2Count > 0 ? Math.round(readinessSum / learningB2Count) : 0,
     stages,
     byGame,
     byPos,
     daily7d: cleanDaily7d,
     words,
+  };
+}
+
+export type B2GoalMilestone = {
+  pct: number;
+  label: string;
+  targetCount: number;
+  reached: boolean;
+  remaining: number;
+};
+
+export type B2GoalProgress = {
+  mastered: number;
+  retained: number;
+  assimilated: number;
+  inConsolidation: number;
+  started: number;
+  due: number;
+  total: number;
+  remainingToMaster: number;
+  masteredPct: number;
+  masteredRatio: number;
+  assimilatedPct: number;
+  assimilatedRatio: number;
+  avgReadinessPct: number;
+  milestones: B2GoalMilestone[];
+  nextMilestone: B2GoalMilestone | null;
+  closestWords: B2WordSnapshot[];
+};
+
+const B2_MILESTONE_DEFS: { pct: number; label: string }[] = [
+  { pct: 25, label: 'Βάση B2' },
+  { pct: 50, label: 'Μισός δρόμος' },
+  { pct: 75, label: 'Ετοιμότητα' },
+  { pct: 100, label: 'Ολοκλήρωση B2' },
+];
+
+export function b2GoalProgress(vocab: Word[] = [], nowTs = Date.now()): B2GoalProgress {
+  const summary = b2ProgressSummary(vocab, nowTs);
+  const { total, mastered, retained, assimilated, started, due, avgReadinessPct } = summary;
+  const inConsolidation = Math.max(0, assimilated - mastered);
+  const remainingToMaster = Math.max(0, total - mastered);
+  const masteredRatio = total > 0 ? Math.min(1, Math.max(0, mastered / total)) : 0;
+  const assimilatedRatio = total > 0 ? Math.min(1, Math.max(0, assimilated / total)) : 0;
+  const masteredPct = total > 0 ? Math.round(masteredRatio * 100) : 0;
+  const assimilatedPct = total > 0 ? Math.round(assimilatedRatio * 100) : 0;
+
+  const milestones: B2GoalMilestone[] = B2_MILESTONE_DEFS.map((def) => {
+    const targetCount = total > 0 ? Math.min(total, Math.max(1, Math.ceil((total * def.pct) / 100))) : 0;
+    const reached = total > 0 && mastered >= targetCount;
+    return {
+      pct: def.pct,
+      label: def.label,
+      targetCount,
+      reached,
+      remaining: total > 0 ? Math.max(0, targetCount - mastered) : 0,
+    };
+  });
+
+  const nextMilestone = total > 0 ? milestones.find((m) => !m.reached) || null : null;
+
+  const closestWords = [...summary.words]
+    .filter((item) => !item.mastered && !isPreviouslyKnown(item.word))
+    .sort((a, b) => {
+      if (b.readinessPct !== a.readinessPct) return b.readinessPct - a.readinessPct;
+      if (b.criteriaMet !== a.criteriaMet) return b.criteriaMet - a.criteriaMet;
+      if (a.due !== b.due) return a.due ? -1 : 1;
+      return a.label.localeCompare(b.label, 'de');
+    })
+    .slice(0, 3);
+
+  return {
+    mastered,
+    retained,
+    assimilated,
+    inConsolidation,
+    started,
+    due,
+    total,
+    remainingToMaster,
+    masteredPct,
+    masteredRatio,
+    assimilatedPct,
+    assimilatedRatio,
+    avgReadinessPct,
+    milestones,
+    nextMilestone,
+    closestWords,
+  };
+}
+
+export type HomeProgressDay = {
+  date: string;
+  day: string;
+  dayNum: string;
+  isToday: boolean;
+  wordsPracticed: number;
+  attempts: number;
+  assimilated: number;
+  xp: number;
+  sessions: number;
+  active: boolean;
+};
+
+export type HomeDailyProgress = {
+  date: string;
+  wordsPracticed: number;
+  targetWords: number;
+  goalPct: number;
+  goalRatio: number;
+  attempts: number;
+  scored: number;
+  correct: number;
+  accuracyPct: number | null;
+  assimilated: number;
+  xp: number;
+  sessions: number;
+  durationMs: number;
+};
+
+export type HomeMonthlyProgress = {
+  windowDays: number;
+  activeDays: number;
+  practicedWords: number;
+  assimilated: number;
+  mastered: number;
+  ratePerDay: number;
+  attempts: number;
+  scored: number;
+  correct: number;
+  accuracyPct: number | null;
+  xp: number;
+  sessions: number;
+  durationMs: number;
+  days: HomeProgressDay[];
+};
+
+export type HomeProgressSummary = {
+  daily: HomeDailyProgress;
+  monthly: HomeMonthlyProgress;
+};
+
+export function homeProgressSummary(
+  vocab: Word[] = [],
+  meta: Word = {},
+  nowTs = Date.now()
+): HomeProgressSummary {
+  const windowDays = 30;
+  const todayIso = localDay(nowTs);
+  const targetWords = Math.max(1, Number(meta?.newPerDay) || 10);
+
+  const lrAssimilated = learningRate30d(vocab, nowTs, 'assimilated', windowDays);
+  const lrMastered = learningRate30d(vocab, nowTs, 'mastered', windowDays);
+  const assimByDate = new Map(lrAssimilated.days.map((d) => [d.date, d.count]));
+
+  const dayBuckets = new Map<
+    string,
+    HomeProgressDay & { _wordIds: Set<string>; _scored: number; _correct: number }
+  >();
+  const orderedDates: string[] = [];
+
+  for (let offset = windowDays - 1; offset >= 0; offset--) {
+    const iso = localDay(nowTs - offset * DAY);
+    orderedDates.push(iso);
+    dayBuckets.set(iso, {
+      date: iso,
+      day: `${iso.slice(8, 10)}/${iso.slice(5, 7)}`,
+      dayNum: iso.slice(8, 10),
+      isToday: offset === 0,
+      wordsPracticed: 0,
+      attempts: 0,
+      assimilated: assimByDate.get(iso) || 0,
+      xp: 0,
+      sessions: 0,
+      active: false,
+      _wordIds: new Set<string>(),
+      _scored: 0,
+      _correct: 0,
+    });
+  }
+
+  const monthlyWordIds = new Set<string>();
+  let monthlyAttempts = 0;
+  let monthlyScored = 0;
+  let monthlyCorrect = 0;
+
+  for (const w of Array.isArray(vocab) ? vocab : []) {
+    const wordId = String(w?.id || w?.word || '');
+    for (const e of Array.isArray(w?.evidence) ? w.evidence : []) {
+      if (!e || e.category === 'unscored' || e.neutral || e.status === 'synonym' || typeof e.timestamp !== 'number' || !Number.isFinite(e.timestamp)) {
+        continue;
+      }
+      const bucket = dayBuckets.get(localDay(e.timestamp));
+      if (!bucket) continue;
+      bucket.attempts += 1;
+      if (wordId) {
+        bucket._wordIds.add(wordId);
+        monthlyWordIds.add(wordId);
+      }
+      monthlyAttempts += 1;
+
+      const isScored = e.category === 'recognition' || e.category === 'recall/production';
+      if (isScored) {
+        bucket._scored += 1;
+        monthlyScored += 1;
+        if (e.correct) {
+          bucket._correct += 1;
+          monthlyCorrect += 1;
+        }
+      }
+    }
+  }
+
+  let todayDurationMs = 0;
+  let monthlyDurationMs = 0;
+  let monthlyXp = 0;
+  let monthlySessions = 0;
+
+  for (const log of Array.isArray(meta?.sessionLogs) ? meta.sessionLogs : []) {
+    if (!log || typeof log.date !== 'string') continue;
+    const bucket = dayBuckets.get(log.date);
+    if (!bucket) continue;
+    const xpVal = Number(log.xp) || 0;
+    const durVal = Number(log.durationMs) || 0;
+    bucket.xp += xpVal;
+    bucket.sessions += 1;
+    monthlyXp += xpVal;
+    monthlySessions += 1;
+    monthlyDurationMs += durVal;
+    if (log.date === todayIso) {
+      todayDurationMs += durVal;
+    }
+  }
+
+  let activeDays = 0;
+  const days: HomeProgressDay[] = orderedDates.map((iso) => {
+    const b = dayBuckets.get(iso)!;
+    const wordsPracticed = b._wordIds.size;
+    const active = b.attempts > 0 || b.sessions > 0 || b.assimilated > 0;
+    if (active) activeDays += 1;
+    return {
+      date: b.date,
+      day: b.day,
+      dayNum: b.dayNum,
+      isToday: b.isToday,
+      wordsPracticed,
+      attempts: b.attempts,
+      assimilated: b.assimilated,
+      xp: b.xp,
+      sessions: b.sessions,
+      active,
+    };
+  });
+
+  const todayBucket = dayBuckets.get(todayIso)!;
+  const todayWordsPracticed = todayBucket._wordIds.size;
+  const goalRatio = Math.min(1, todayWordsPracticed / targetWords);
+  const goalPct = Math.round(goalRatio * 100);
+
+  return {
+    daily: {
+      date: todayIso,
+      wordsPracticed: todayWordsPracticed,
+      targetWords,
+      goalPct,
+      goalRatio,
+      attempts: todayBucket.attempts,
+      scored: todayBucket._scored,
+      correct: todayBucket._correct,
+      accuracyPct: todayBucket._scored > 0 ? Math.round((todayBucket._correct / todayBucket._scored) * 100) : null,
+      assimilated: todayBucket.assimilated,
+      xp: todayBucket.xp,
+      sessions: todayBucket.sessions,
+      durationMs: todayDurationMs,
+    },
+    monthly: {
+      windowDays,
+      activeDays,
+      practicedWords: monthlyWordIds.size,
+      assimilated: lrAssimilated.totalWords,
+      mastered: lrMastered.totalWords,
+      ratePerDay: lrAssimilated.ratePerDay,
+      attempts: monthlyAttempts,
+      scored: monthlyScored,
+      correct: monthlyCorrect,
+      accuracyPct: monthlyScored > 0 ? Math.round((monthlyCorrect / monthlyScored) * 100) : null,
+      xp: monthlyXp,
+      sessions: monthlySessions,
+      durationMs: monthlyDurationMs,
+      days,
+    },
   };
 }

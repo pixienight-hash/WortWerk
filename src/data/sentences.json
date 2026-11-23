@@ -1,0 +1,859 @@
+[
+  {
+    "id": "S0001",
+    "sentence": "Könnten Sie mir bitte das Salz reichen?",
+    "type": "polite_request",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Θα μπορούσατε να μου δώσετε το αλάτι, παρακαλώ;",
+      "en": "Could you please pass me the salt?"
+    },
+    "usage": "Ευγενικό αίτημα στο τραπέζι ή σε καθημερινή περίσταση.",
+    "context": "Am Esstisch",
+    "grammar": "Konjunktiv II – höfliche Bitte (könnten + Dativ + Akkusativ)",
+    "structure": "Könnten Sie mir bitte + [Akkusativ] + reichen?",
+    "examples": [
+      {
+        "de": "Entschuldigung, könnten Sie mir bitte das Salz reichen?",
+        "el": "Συγγνώμη, θα μπορούσατε να μου δώσετε το αλάτι, παρακαλώ;"
+      },
+      {
+        "de": "Könnten Sie mir bitte die Speisekarte reichen?",
+        "el": "Θα μπορούσατε να μου δώσετε τον κατάλογο, παρακαλώ;"
+      }
+    ],
+    "alternatives": [
+      "Würden Sie mir bitte das Salz reichen?",
+      "Könntest du mir bitte das Salz geben?"
+    ],
+    "synonyms": [
+      "das Salz herüberreichen"
+    ],
+    "memoryHook": "reichen = φτάνω/δίνω με το χέρι (όπως αγγλ. reach).",
+    "tags": ["Alltag", "Essen", "Höflichkeit"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0002",
+    "sentence": "Die Quadratur des Kreises.",
+    "type": "idiom",
+    "cefr": "C1",
+    "meaning": {
+      "el": "Ο τετραγωνισμός του κύκλου (κάτι αδύνατο να επιτευχθεί).",
+      "en": "Squaring the circle (an impossible task)."
+    },
+    "usage": "Χρησιμοποιείται για ένα πρόβλημα που μοιάζει άλυτο ή αντιφατικό.",
+    "context": "Diskussion / Arbeitsalltag",
+    "grammar": "Genitivattribut (die Quadratur + des Kreises)",
+    "structure": "die Quadratur + [Genitiv]",
+    "examples": [
+      {
+        "de": "Alle Wünsche gleichzeitig zu erfüllen, ist die Quadratur des Kreises.",
+        "el": "Το να ικανοποιήσει κανείς όλες τις επιθυμίες ταυτόχρονα είναι ο τετραγωνισμός του κύκλου."
+      }
+    ],
+    "alternatives": [
+      "Das ist ein unlösbares Problem."
+    ],
+    "synonyms": [
+      "ein Ding der Unmöglichkeit"
+    ],
+    "memoryHook": "Ακριβής αντιστοιχία με τα ελληνικά: τετραγωνισμός (Quadratur) του κύκλου (des Kreises).",
+    "tags": ["Redewendung", "Bildungssprache", "C1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0003",
+    "sentence": "Gerade noch geschafft!",
+    "type": "everyday_expression",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Ίσα-ίσα που το πρόλαβα / το κατάφερα!",
+      "en": "Just made it in time!"
+    },
+    "usage": "Αυθόρμητη ανακούφιση όταν προλαβαίνεις κάτι την τελευταία στιγμή.",
+    "context": "Am Bahnhof / Bei einer Frist",
+    "grammar": "Ellipse im Perfekt (Ich habe es gerade noch geschafft.)",
+    "structure": "Gerade noch + [Partizip II]!",
+    "examples": [
+      {
+        "de": "Der Zug fährt gleich ab – gerade noch geschafft!",
+        "el": "Το τρένο φεύγει τώρα – ίσα-ίσα που το πρόλαβα!"
+      }
+    ],
+    "alternatives": [
+      "Knapp geschafft!",
+      "Das war knapp!"
+    ],
+    "synonyms": [
+      "auf den letzten Drücker"
+    ],
+    "memoryHook": "gerade noch = μόλις και μετά βίας · geschafft = τα κατάφερα.",
+    "tags": ["Alltag", "Zeit", "Spontan"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0004",
+    "sentence": "Darf ich Sie kurz stören?",
+    "type": "polite_question",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Μπορώ να σας ενοχλήσω για λίγο;",
+      "en": "May I bother you for a moment?"
+    },
+    "usage": "Ευγενική προσέγγιση πριν απευθύνεις ερώτηση σε κάποιον που απασχολείται.",
+    "context": "Im Büro / In der Öffentlichkeit",
+    "grammar": "Modalverb dürfen im Präsens + Akkusativ (Sie) + Infinitiv",
+    "structure": "Darf ich + [Person im Akkusativ] + kurz + [Infinitiv]?",
+    "examples": [
+      {
+        "de": "Entschuldigung, darf ich Sie kurz stören? Ich habe eine kurze Frage.",
+        "el": "Συγγνώμη, μπορώ να σας ενοχλήσω για λίγο; Έχω μια σύντομη ερώτηση."
+      }
+    ],
+    "alternatives": [
+      "Hätten Sie einen kurzen Moment Zeit?",
+      "Störe ich gerade?"
+    ],
+    "synonyms": [
+      "kurz unterbrechen"
+    ],
+    "memoryHook": "darf ich = επιτρέπεται να · kurz = για λίγο · stören = ενοχλώ.",
+    "tags": ["Höflichkeit", "Büro", "Alltag"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0005",
+    "sentence": "Könnten Sie mich bitte kurz herauslassen?",
+    "type": "polite_request",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Θα μπορούσατε να με αφήσετε να περάσω/βγω για λίγο, παρακαλώ;",
+      "en": "Could you please let me out for a moment?"
+    },
+    "usage": "Όταν θέλεις να βγεις από κάθισμα σε τρένο, λεωφορείο, αεροπλάνο ή σειρά καθισμάτων.",
+    "context": "In der Bahn / Im Kino",
+    "grammar": "Konjunktiv II + trennbares Verb (herauslassen) am Satzende",
+    "structure": "Könnten Sie mich bitte kurz + [Infinitiv]?",
+    "examples": [
+      {
+        "de": "Ich muss an der nächsten Station aussteigen. Könnten Sie mich bitte kurz herauslassen?",
+        "el": "Πρέπει να κατέβω στην επόμενη στάση. Θα μπορούσατε να με αφήσετε να βγω, παρακαλώ;"
+      }
+    ],
+    "alternatives": [
+      "Darf ich mal kurz vorbei?",
+      "Würden Sie mich bitte kurz durchlassen?"
+    ],
+    "synonyms": [
+      "durchlassen",
+      "vorbeilassen"
+    ],
+    "memoryHook": "heraus + lassen = αφήνω να βγει προς τα έξω.",
+    "tags": ["Unterwegs", "Verkehr", "Höflichkeit"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0006",
+    "sentence": "Pflichten und Rechte.",
+    "type": "fixed_expression",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Υποχρεώσεις και δικαιώματα.",
+      "en": "Duties and rights."
+    },
+    "usage": "Σταθερό ζεύγος λέξεων σε συμβόλαια, νόμους, εργασιακό και κοινωνικό πλαίσιο.",
+    "context": "Vertrag / Gesellschaft / Arbeit",
+    "grammar": "Zwillingsformel (Pluralformen ohne Artikel)",
+    "structure": "[Nomen Plural] und [Nomen Plural]",
+    "examples": [
+      {
+        "de": "Im Arbeitsvertrag stehen alle Pflichten und Rechte klar beschrieben.",
+        "el": "Στο συμβόλαιο εργασίας περιγράφονται καθαρά όλες οι υποχρεώσεις και τα δικαιώματα."
+      }
+    ],
+    "alternatives": [
+      "Rechte und Pflichten."
+    ],
+    "synonyms": [
+      "Aufgaben und Ansprüche"
+    ],
+    "memoryHook": "die Pflicht (υποχρέωση) + das Recht (δικαίωμα) — κλασικό δίδυμο.",
+    "tags": ["Recht", "Beruf", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0007",
+    "sentence": "Das kommt ganz darauf an.",
+    "type": "everyday_expression",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Αυτό εξαρτάται απόλυτα (από την περίσταση).",
+      "en": "That completely depends."
+    },
+    "usage": "Όταν δεν υπάρχει μία απόλυτη απάντηση ναι ή όχι και όλα εξαρτώνται από τις συνθήκες.",
+    "context": "Im Gespräch / Bei einer Entscheidung",
+    "grammar": "Verb mit Präposition: ankommen auf + Akkusativ (Pronominaladverb darauf)",
+    "structure": "Das kommt (ganz) darauf an (+ Nebensatz).",
+    "examples": [
+      {
+        "de": "Kommst du morgen mit? – Das kommt ganz darauf an, wie das Wetter wird.",
+        "el": "Θα έρθεις μαζί αύριο; – Εξαρτάται απόλυτα από το πώς θα είναι ο καιρός."
+      }
+    ],
+    "alternatives": [
+      "Es kommt darauf an.",
+      "Das hängt davon ab."
+    ],
+    "synonyms": [
+      "abhängen von"
+    ],
+    "memoryHook": "ankommen auf = εξαρτώμαι από · darauf = σε αυτό.",
+    "tags": ["Gespräch", "Alltag", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0008",
+    "sentence": "Keine Ursache!",
+    "type": "everyday_expression",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Τίποτα / Δεν κάνει τίποτα (παρακαλώ)!",
+      "en": "Don't mention it! / No problem at all!"
+    },
+    "usage": "Ευγενική απάντηση σε ένα «ευχαριστώ».",
+    "context": "Nach einem Dankeschön",
+    "grammar": "Negation mit kein + Nomen (die Ursache)",
+    "structure": "Keine Ursache!",
+    "examples": [
+      {
+        "de": "Vielen Dank für deine Hilfe! – Keine Ursache!",
+        "el": "Ευχαριστώ πολύ για τη βοήθειά σου! – Δεν κάνει τίποτα!"
+      }
+    ],
+    "alternatives": [
+      "Gern geschehen!",
+      "Nichts zu danken!"
+    ],
+    "synonyms": [
+      "Kein Problem"
+    ],
+    "memoryHook": "Ursache = αιτία/λόγος → «δεν υπάρχει λόγος (να ευχαριστείς)».",
+    "tags": ["Höflichkeit", "Alltag"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0009",
+    "sentence": "Hätten Sie einen Moment Zeit für mich?",
+    "type": "polite_question",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Θα είχατε μια στιγμή χρόνο για μένα;",
+      "en": "Would you have a moment for me?"
+    },
+    "usage": "Ευγενική ερώτηση σε συνάδελφο, προϊστάμενο ή υπάλληλο πριν από μια συζήτηση.",
+    "context": "Am Arbeitsplatz / Beratung",
+    "grammar": "Konjunktiv II von haben (hätten) + Akkusativ (einen Moment)",
+    "structure": "Hätten Sie + [Zeitangabe] + Zeit für + [Akkusativ]?",
+    "examples": [
+      {
+        "de": "Guten Tag Frau Weber, hätten Sie einen Moment Zeit für mich?",
+        "el": "Καλημέρα κυρία Βέμπερ, θα είχατε μια στιγμή χρόνο για μένα;"
+      }
+    ],
+    "alternatives": [
+      "Haben Sie kurz Zeit?",
+      "Könnten wir kurz sprechen?"
+    ],
+    "synonyms": [
+      "einen Augenblick Zeit haben"
+    ],
+    "memoryHook": "hätten = θα είχατε (πιο ευγενικό από το haben).",
+    "tags": ["Beruf", "Höflichkeit", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0010",
+    "sentence": "Ich melde mich bei Ihnen, sobald ich mehr weiß.",
+    "type": "professional_expression",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Θα επικοινωνήσω μαζί σας μόλις μάθω περισσότερα.",
+      "en": "I will get back to you as soon as I know more."
+    },
+    "usage": "Επαγγελματική διατύπωση σε e-mail, τηλέφωνο ή συνάντηση όταν εκκρεμεί μια πληροφορία.",
+    "context": "E-Mail / Telefonat im Beruf",
+    "grammar": "Reflexives Verb (sich melden bei + Dativ) + temporaler Nebensatz mit sobald",
+    "structure": "Ich melde mich bei [Dativ], sobald + [Nebensatz].",
+    "examples": [
+      {
+        "de": "Vielen Dank für Ihre Anfrage. Ich melde mich bei Ihnen, sobald ich mehr weiß.",
+        "el": "Ευχαριστώ πολύ για το αίτημά σας. Θα επικοινωνήσω μαζί σας μόλις μάθω περισσότερα."
+      }
+    ],
+    "alternatives": [
+      "Ich gebe Ihnen Bescheid, sobald ich Neuigkeiten habe."
+    ],
+    "synonyms": [
+      "Bescheid geben",
+      "Rückmeldung geben"
+    ],
+    "memoryHook": "sich melden = δίνω σημείο ζωής/επικοινωνώ · sobald = μόλις.",
+    "tags": ["Beruf", "E-Mail", "Kommunikation"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0011",
+    "sentence": "Vielen Dank im Voraus für Ihre Unterstützung.",
+    "type": "professional_expression",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Σας ευχαριστώ εκ των προτέρων για την υποστήριξή σας.",
+      "en": "Thank you in advance for your support."
+    },
+    "usage": "Κλασικό ευγενικό κλείσιμο σε επαγγελματικά e-mail όταν ζητάμε βοήθεια ή ενέργεια.",
+    "context": "Geschäftliche E-Mail",
+    "grammar": "Präpositionalphrase (im Voraus) + für + Akkusativ",
+    "structure": "Vielen Dank im Voraus für + [Akkusativ].",
+    "examples": [
+      {
+        "de": "Bitte senden Sie mir die Unterlagen bis Freitag. Vielen Dank im Voraus für Ihre Unterstützung.",
+        "el": "Παρακαλώ στείλτε μου τα έγγραφα μέχρι την Παρασκευή. Σας ευχαριστώ εκ των προτέρων για την υποστήριξή σας."
+      }
+    ],
+    "alternatives": [
+      "Herzlichen Dank im Voraus für Ihre Hilfe."
+    ],
+    "synonyms": [
+      "besten Dank im Voraus"
+    ],
+    "memoryHook": "im Voraus = εκ των προτέρων (vor + aus).",
+    "tags": ["Beruf", "E-Mail", "B2"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0012",
+    "sentence": "Es lohnt sich, frühzeitig zu planen.",
+    "type": "sentence_pattern",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Αξίζει τον κόπο να προγραμματίζει κανείς έγκαιρα.",
+      "en": "It is worth planning ahead early."
+    },
+    "usage": "Μοτίβο πρότασης για να δώσεις μια πρακτική συμβουλή ή αξιολόγηση.",
+    "context": "Ratgeber / Planung / Beruf",
+    "grammar": "Unpersönliches Verb (es lohnt sich) + Infinitivsatz mit zu",
+    "structure": "Es lohnt sich, + [Angabe] + zu + [Infinitiv].",
+    "examples": [
+      {
+        "de": "Gerade vor großen Projekten lohnt es sich, frühzeitig zu planen.",
+        "el": "Ειδικά πριν από μεγάλα έργα αξίζει τον κόπο να προγραμματίζει κανείς έγκαιρα."
+      }
+    ],
+    "alternatives": [
+      "Frühzeitige Planung zahlt sich aus."
+    ],
+    "synonyms": [
+      "sich auszahlen"
+    ],
+    "memoryHook": "der Lohn = ανταμοιβή/μισθός → es lohnt sich = αποδίδει/αξίζει.",
+    "tags": ["Satzmuster", "B2", "Planung"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0013",
+    "sentence": "Je eher wir anfangen, desto schneller sind wir fertig.",
+    "type": "sentence_pattern",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Όσο πιο νωρίς ξεκινήσουμε, τόσο πιο γρήγορα θα τελειώσουμε.",
+      "en": "The sooner we start, the faster we will finish."
+    },
+    "usage": "Εκφράζει αναλογική σχέση αιτίας-αποτελέσματος (όσο... τόσο...).",
+    "context": "Teamarbeit / Zeitmanagement",
+    "grammar": "Zweiteilige Konjunktion je ... desto (Nebensatz + Komparativ + Verb)",
+    "structure": "Je + [Komparativ] + [Nebensatz], desto + [Komparativ] + [Verb] + [Subjekt].",
+    "examples": [
+      {
+        "de": "Lass uns loslegen – je eher wir anfangen, desto schneller sind wir fertig.",
+        "el": "Ας ξεκινήσουμε – όσο πιο νωρίς ξεκινήσουμε, τόσο πιο γρήγορα θα τελειώσουμε."
+      }
+    ],
+    "alternatives": [
+      "Je früher wir beginnen, umso schneller sind wir fertig."
+    ],
+    "synonyms": [
+      "je ... umso ..."
+    ],
+    "memoryHook": "je = όσο (ρήμα στο τέλος) · desto = τόσο (ρήμα αμέσως μετά το συγκριτικό).",
+    "tags": ["Satzmuster", "Grammatik", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0014",
+    "sentence": "Etwas auf den Punkt bringen.",
+    "type": "idiom",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Λέω κάτι με ακρίβεια / μπαίνω κατευθείαν στην ουσία.",
+      "en": "To get straight to the point / sum something up precisely."
+    },
+    "usage": "Όταν κάποιος διατυπώνει μια σκέψη καθαρά, σύντομα και εύστοχα.",
+    "context": "Präsentation / Diskussion",
+    "grammar": "Feste Verb-Nomen-Verbindung (auf + Akkusativ + bringen)",
+    "structure": "[Akkusativ] auf den Punkt bringen",
+    "examples": [
+      {
+        "de": "Du hast das Problem wirklich auf den Punkt gebracht.",
+        "el": "Εντόπισες και διατύπωσες το πρόβλημα ακριβώς στην ουσία του."
+      }
+    ],
+    "alternatives": [
+      "Das Wesentliche kurz zusammenfassen."
+    ],
+    "synonyms": [
+      "treffend formulieren"
+    ],
+    "memoryHook": "auf den Punkt = ακριβώς στο σημείο / στο κέντρο του στόχου.",
+    "tags": ["Redewendung", "Kommunikation", "B2"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0015",
+    "sentence": "Im Großen und Ganzen bin ich zufrieden.",
+    "type": "fixed_expression",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Σε γενικές γραμμές είμαι ικανοποιημένος.",
+      "en": "On the whole / All in all, I am satisfied."
+    },
+    "usage": "Για συνολική αποτίμηση μιας εμπειρίας ή ενός αποτελέσματος παρά τις μικρές λεπτομέρειες.",
+    "context": "Feedback / Bewertung",
+    "grammar": "Substantivierte Adjektive im Dativ (im Großen und Ganzen)",
+    "structure": "Im Großen und Ganzen + [Verb] + [Subjekt] + ...",
+    "examples": [
+      {
+        "de": "Es gab kleine Verzögerungen, aber im Großen und Ganzen bin ich zufrieden.",
+        "el": "Υπήρξαν μικρές καθυστερήσεις, αλλά σε γενικές γραμμές είμαι ικανοποιημένος."
+      }
+    ],
+    "alternatives": [
+      "Alles in allem bin ich zufrieden."
+    ],
+    "synonyms": [
+      "alles in allem",
+      "insgesamt"
+    ],
+    "memoryHook": "groß (μεγάλο) + ganz (όλο) → βλέποντας τη μεγάλη εικόνα.",
+    "tags": ["Ausdruck", "Feedback", "B2"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0016",
+    "sentence": "Das steht außer Frage.",
+    "type": "fixed_expression",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Αυτό είναι εκτός συζήτησης / αναμφισβήτητο.",
+      "en": "That is beyond question / undisputed."
+    },
+    "usage": "Τονίζει ότι κάτι είναι απολύτως σίγουρο και δεν χωράει αμφιβολία.",
+    "context": "Argumentation / Meeting",
+    "grammar": "Feste Verbindung mit Präposition außer + Dativ (ohne Artikel)",
+    "structure": "[Subjekt] steht außer Frage.",
+    "examples": [
+      {
+        "de": "Dass wir Qualität liefern müssen, steht außer Frage.",
+        "el": "Ότι πρέπει να προσφέρουμε ποιότητα είναι αναμφισβήτητο."
+      }
+    ],
+    "alternatives": [
+      "Daran besteht kein Zweifel."
+    ],
+    "synonyms": [
+      "zweifellos",
+      "unbestritten"
+    ],
+    "memoryHook": "außer Frage = έξω από κάθε ερώτηση/αμφιβολία.",
+    "tags": ["Argumentation", "B2", "Beruf"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0017",
+    "sentence": "Ich habe den Überblick verloren.",
+    "type": "sentence",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Έχω χάσει τη γενική εικόνα / έχω χάσει την μπάλα.",
+      "en": "I have lost track / lost the overview."
+    },
+    "usage": "Όταν υπάρχουν υπερβολικά πολλές πληροφορίες, εργασίες ή λεπτομέρειες ταυτόχρονα.",
+    "context": "Im Büro / Beim Lernen",
+    "grammar": "Perfekt mit haben + verlieren → verloren",
+    "structure": "Ich habe den Überblick (über + Akk.) verloren.",
+    "examples": [
+      {
+        "de": "Bei so vielen E-Mails habe ich langsam den Überblick verloren.",
+        "el": "Με τόσα πολλά e-mail έχω αρχίσει να χάνω τη γενική εικόνα."
+      }
+    ],
+    "alternatives": [
+      "Ich blicke nicht mehr durch."
+    ],
+    "synonyms": [
+      "den Faden verlieren"
+    ],
+    "memoryHook": "über (από πάνω) + Blick (βλέμμα) = η εποπτική ματιά.",
+    "tags": ["Alltag", "Arbeit", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0018",
+    "sentence": "Wir müssen eine gemeinsame Lösung finden.",
+    "type": "sentence",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Πρέπει να βρούμε μια κοινή λύση.",
+      "en": "We have to find a joint solution."
+    },
+    "usage": "Εποικοδομητική φράση σε διαφωνία, διαπραγμάτευση ή συνεργασία.",
+    "context": "Konfliktlösung / Teamgespräch",
+    "grammar": "Modalverb müssen + Akkusativ (eine gemeinsame Lösung) + Infinitiv",
+    "structure": "Wir müssen + [Akkusativ] + finden.",
+    "examples": [
+      {
+        "de": "Streiten hilft nicht weiter – wir müssen eine gemeinsame Lösung finden.",
+        "el": "Ο καβγάς δεν βοηθάει – πρέπει να βρούμε μια κοινή λύση."
+      }
+    ],
+    "alternatives": [
+      "Lassen Sie uns zusammen eine Lösung erarbeiten."
+    ],
+    "synonyms": [
+      "einen Kompromiss schließen"
+    ],
+    "memoryHook": "gemeinsam = από κοινού · die Lösung = η λύση.",
+    "tags": ["Beruf", "Gespräch", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0019",
+    "sentence": "Könnten Sie das bitte noch einmal wiederholen?",
+    "type": "polite_request",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Θα μπορούσατε να το επαναλάβετε άλλη μία φορά, παρακαλώ;",
+      "en": "Could you please repeat that one more time?"
+    },
+    "usage": "Όταν δεν άκουσες ή δεν κατάλαβες καθαρά τι είπε ο συνομιλητής σου.",
+    "context": "Am Telefon / Im Unterricht / Im Gespräch",
+    "grammar": "Konjunktiv II (könnten) + untrennbares Verb wiederholen",
+    "structure": "Könnten Sie [Objekt] bitte noch einmal + [Infinitiv]?",
+    "examples": [
+      {
+        "de": "Die Verbindung war schlecht. Könnten Sie das bitte noch einmal wiederholen?",
+        "el": "Η γραμμή είχε παράσιτα. Θα μπορούσατε να το επαναλάβετε άλλη μία φορά, παρακαλώ;"
+      }
+    ],
+    "alternatives": [
+      "Wie bitte? Ich habe Sie akustisch nicht verstanden."
+    ],
+    "synonyms": [
+      "nochmals sagen"
+    ],
+    "memoryHook": "wieder (ξανά) + holen (φέρνω) = επαναλαμβάνω.",
+    "tags": ["Höflichkeit", "Telefon", "Alltag"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0020",
+    "sentence": "Aus meiner Sicht spricht vieles dafür.",
+    "type": "professional_expression",
+    "cefr": "C1",
+    "meaning": {
+      "el": "Κατά τη δική μου άποψη υπάρχουν πολλά επιχειρήματα υπέρ αυτού.",
+      "en": "From my perspective, there is a lot to be said for it."
+    },
+    "usage": "Εκλεπτυσμένος τρόπος να στηρίξεις μια πρόταση σε συζήτηση, σύσκεψη ή δοκίμιο.",
+    "context": "Meeting / Debatte / Aufsatz",
+    "grammar": "Präpositionalphrase (aus + Dativ) + sprechen für (Pronominaladverb dafür)",
+    "structure": "Aus meiner Sicht spricht vieles + [dafür / dagegen].",
+    "examples": [
+      {
+        "de": "Aus meiner Sicht spricht vieles dafür, das Projekt schrittweise einzuführen.",
+        "el": "Κατά την άποψή μου υπάρχουν πολλά υπέρ του να εφαρμοστεί το έργο σταδιακά."
+      }
+    ],
+    "alternatives": [
+      "Meiner Ansicht nach überwiegen die Vorteile."
+    ],
+    "synonyms": [
+      "meines Erachtens",
+      "aus meiner Perspektive"
+    ],
+    "memoryHook": "sprechen für = «μιλάω υπέρ» → vieles spricht dafür.",
+    "tags": ["Argumentation", "C1", "Beruf"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0021",
+    "sentence": "Darf ich Ihnen etwas zu trinken anbieten?",
+    "type": "polite_question",
+    "cefr": "A2",
+    "meaning": {
+      "el": "Μπορώ να σας προσφέρω κάτι να πιείτε;",
+      "en": "May I offer you something to drink?"
+    },
+    "usage": "Κλασική φράση φιλοξενίας σε επισκέπτες στο σπίτι ή στο γραφείο.",
+    "context": "Besuch empfangen / Im Büro",
+    "grammar": "Modalverb dürfen + Dativ (Ihnen) + trennbares Verb anbieten",
+    "structure": "Darf ich Ihnen + [etwas zu + Infinitiv] + anbieten?",
+    "examples": [
+      {
+        "de": "Nehmen Sie gerne Platz! Darf ich Ihnen etwas zu trinken anbieten?",
+        "el": "Καθίστε παρακαλώ! Μπορώ να σας προσφέρω κάτι να πιείτε;"
+      }
+    ],
+    "alternatives": [
+      "Möchten Sie vielleicht einen Kaffee oder ein Wasser?"
+    ],
+    "synonyms": [
+      "etwas reichen"
+    ],
+    "memoryHook": "anbieten = προσφέρω (με δοτική προσώπου: Ihnen).",
+    "tags": ["Gastfreundschaft", "Höflichkeit", "Büro"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0022",
+    "sentence": "Das lässt sich leider nicht vermeiden.",
+    "type": "sentence_pattern",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Αυτό δυστυχώς δεν μπορεί να αποφευχθεί.",
+      "en": "Unfortunately, that cannot be avoided."
+    },
+    "usage": "Παθητική εναλλακτική με sich lassen για αναπόφευκτες καταστάσεις.",
+    "context": "Erklärung / Beruf / Alltag",
+    "grammar": "Passiversatzform: sich lassen + Infinitiv (= kann nicht vermieden werden)",
+    "structure": "Das lässt sich (leider) nicht + [Infinitiv].",
+    "examples": [
+      {
+        "de": "Wartezeiten während der Hauptreisezeit lassen sich leider nicht vermeiden.",
+        "el": "Οι χρόνοι αναμονής κατά την περίοδο αιχμής δυστυχώς δεν μπορούν να αποφευχθούν."
+      }
+    ],
+    "alternatives": [
+      "Das kann leider nicht verhindert werden."
+    ],
+    "synonyms": [
+      "unvermeidlich sein"
+    ],
+    "memoryHook": "sich lassen + Infinitiv = «μπορεί να ...-θεί» (κομψός παθητικός τύπος B2/C1).",
+    "tags": ["Satzmuster", "Passiversatz", "B2"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0023",
+    "sentence": "Das liegt auf der Hand.",
+    "type": "idiom",
+    "cefr": "B2",
+    "meaning": {
+      "el": "Αυτό είναι ολοφάνερο / αυτονόητο.",
+      "en": "That is obvious / plain to see."
+    },
+    "usage": "Όταν ένα συμπέρασμα είναι τόσο ξεκάθαρο που δεν χρειάζεται ιδιαίτερη απόδειξη.",
+    "context": "Diskussion / Analyse",
+    "grammar": "Idiomatische Wendung: liegen + auf + Dativ (der Hand)",
+    "structure": "[Subjekt] liegt auf der Hand.",
+    "examples": [
+      {
+        "de": "Die Vorteile dieser Methode liegen auf der Hand.",
+        "el": "Τα πλεονεκτήματα αυτής της μεθόδου είναι ολοφάνερα."
+      }
+    ],
+    "alternatives": [
+      "Das ist offensichtlich."
+    ],
+    "synonyms": [
+      "offensichtlich sein",
+      "klar sein"
+    ],
+    "memoryHook": "Κυριολεκτικά «βρίσκεται πάνω στην παλάμη» — τόσο κοντά και φανερό.",
+    "tags": ["Redewendung", "B2", "Argumentation"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  },
+  {
+    "id": "S0024",
+    "sentence": "Soweit ich weiß, findet der Termin morgen statt.",
+    "type": "sentence",
+    "cefr": "B1",
+    "meaning": {
+      "el": "Απ’ όσο γνωρίζω, το ραντεβού γίνεται αύριο.",
+      "en": "As far as I know, the appointment takes place tomorrow."
+    },
+    "usage": "Όταν δίνεις μια πληροφορία με επιφύλαξη («απ' όσο ξέρω»).",
+    "context": "Terminabsprache / Büro",
+    "grammar": "Nebensatz mit soweit + Hauptsatz mit Verb an Position 2 (stattfinden)",
+    "structure": "Soweit ich weiß, + [Verb] + [Subjekt] + ...",
+    "examples": [
+      {
+        "de": "Soweit ich weiß, ist das Büro heute bis 17 Uhr geöffnet.",
+        "el": "Απ’ όσο γνωρίζω, το γραφείο είναι σήμερα ανοιχτό μέχρι τις 17:00."
+      }
+    ],
+    "alternatives": [
+      "Meines Wissens findet der Termin morgen statt."
+    ],
+    "synonyms": [
+      "meines Wissens"
+    ],
+    "memoryHook": "soweit = όσο μακριά φτάνει (η γνώση μου) · stattfinden = λαμβάνει χώρα.",
+    "tags": ["Alltag", "Termine", "B1"],
+    "learning": {
+      "status": "new",
+      "timesSeen": 0,
+      "timesCorrect": 0,
+      "confidence": 0,
+      "nextReview": null
+    }
+  }
+]
