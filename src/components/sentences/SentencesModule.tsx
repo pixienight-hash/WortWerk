@@ -23,6 +23,7 @@ import SentenceAddView from "./SentenceAddView";
 import SentenceLearnView from "./SentenceLearnView";
 import SentenceExercisesView from "./SentenceExercisesView";
 import SentenceStatsView from "./SentenceStatsView";
+import { useAppLang } from "@/lib/i18n";
 
 type SentencesSubTab = "list" | "add" | "learn" | "exercises" | "stats";
 
@@ -93,6 +94,7 @@ interface Props {
 }
 
 export default function SentencesModule({ onDueCountChange }: Props) {
+  const { t } = useAppLang();
   const [subTab, setSubTab] = useState<SentencesSubTab>("list");
   const [state, setState] = useState<{ sentences: SentenceEntry[]; meta: SentenceMeta }>(() =>
     loadInitialSentencesState(),
@@ -262,7 +264,7 @@ export default function SentencesModule({ onDueCountChange }: Props) {
 
       {/* Dedicated Bottom Navigation for Sätze & Ausdrücke matching WortWerk aesthetic */}
       <nav
-        aria-label="Πλοήγηση Sätze & Ausdrücke"
+        aria-label={t("Πλοήγηση Sätze & Ausdrücke", "Sätze & Ausdrücke navigation")}
         className="sticky right-0 bottom-0 left-0 z-20 grid grid-cols-5 items-end border-t border-[#ECE4D3] bg-[#FDFAF3]/95 px-1.5 pt-1.5 pb-[calc(8px+env(safe-area-inset-bottom))] backdrop-blur-md"
       >
         {navItems.map((it) => {

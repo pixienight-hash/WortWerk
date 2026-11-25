@@ -12,6 +12,7 @@ import {
   type SentenceMeta,
   type SentenceMasteryStatus,
 } from "@/lib/sentences-data";
+import { useAppLang } from "@/lib/i18n";
 
 interface Props {
   sentences: SentenceEntry[];
@@ -27,8 +28,9 @@ const STATUS_ORDER: readonly SentenceMasteryStatus[] = [
 ];
 
 export default function SentenceStatsView({ sentences, meta }: Props) {
+  const { lang, t } = useAppLang();
   const stats = useMemo(() => computeSentenceStats(sentences, meta), [sentences, meta]);
-  const weekly = useMemo(() => sentenceWeeklyTimeline(meta, 7), [meta]);
+  const weekly = useMemo(() => sentenceWeeklyTimeline(meta, 7, Date.now(), lang), [meta, lang]);
 
   const masteredAndRetained = stats.byStatus.mastered + stats.byStatus.retained;
   const overallMasteryPct =
@@ -41,7 +43,10 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
           Fortschritt
         </h1>
         <p className="mt-0.5 text-[13px] text-[#8B8680]">
-          Ανεξάρτητα στατιστικά προτάσεων &amp; εκφράσεων
+          {t(
+            "Ανεξάρτητα στατιστικά προτάσεων & εκφράσεων",
+            "Independent sentences & expressions statistics",
+          )}
         </p>
       </div>
 
@@ -50,7 +55,7 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
         <div className="ww-tag-card p-4">
           <div className="flex items-center gap-1.5 text-[#8B8680]">
             <Target size={14} />
-            <span className="text-[11px]">Σύνολο προτάσεων</span>
+            <span className="text-[11px]">{t("Σύνολο προτάσεων", "Total sentences")}</span>
           </div>
           <div className="ww-display mt-1 text-2xl font-bold text-[#211F1C]">{stats.total}</div>
         </div>
@@ -58,35 +63,37 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
         <div className="ww-tag-card p-4">
           <div className="flex items-center gap-1.5 text-[#3F8C5F]">
             <CheckCircle2 size={14} />
-            <span className="text-[11px]">Ποσοστό επιτυχίας</span>
+            <span className="text-[11px]">{t("Ποσοστό επιτυχίας", "Success rate")}</span>
           </div>
           <div className="ww-display mt-1 text-2xl font-bold text-[#211F1C]">
             {stats.successRate !== null ? `${stats.successRate}%` : "—"}
           </div>
           <div className="ww-mono text-[10px] text-[#8B8680]">
-            {stats.totalCorrect}/{stats.totalAttempts} απαντήσεις
+            {stats.totalCorrect}/{stats.totalAttempts} {t("απαντήσεις", "answers")}
           </div>
         </div>
 
         <div className="ww-tag-card p-4">
           <div className="flex items-center gap-1.5 text-[#4FA091]">
             <RefreshCw size={14} />
-            <span className="text-[11px]">Επαναλήφθηκαν</span>
+            <span className="text-[11px]">{t("Επαναλήφθηκαν", "Reviewed")}</span>
           </div>
           <div className="ww-display mt-1 text-2xl font-bold text-[#211F1C]">
             {stats.reviewedCount}
           </div>
-          <div className="ww-mono text-[10px] text-[#8B8680]">{stats.dueCount} οφείλονται</div>
+          <div className="ww-mono text-[10px] text-[#8B8680]">
+            {stats.dueCount} {t("οφείλονται", "due")}
+          </div>
         </div>
 
         <div className="ww-tag-card p-4">
           <div className="flex items-center gap-1.5 text-[#C1543C]">
             <Flame size={14} />
-            <span className="text-[11px]">Σειρά ημερών</span>
+            <span className="text-[11px]">{t("Σειρά ημερών", "Day streak")}</span>
           </div>
           <div className="ww-display mt-1 text-2xl font-bold text-[#211F1C]">{stats.streak}</div>
           <div className="ww-mono text-[10px] text-[#8B8680]">
-            Σήμερα: {stats.todayUnique} προτ.
+            {t("Σήμερα:", "Today:")} {stats.todayUnique} {t("προτ.", "sent.")}
           </div>
         </div>
       </div>
@@ -94,7 +101,9 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
       {/* Mastery Status Breakdown */}
       <div className="ww-tag-card mt-4 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="ww-display text-lg font-semibold text-[#211F1C]">Επίπεδα Κατάκτησης</h2>
+          <h2 className="ww-display text-lg font-semibold text-[#211F1C]">
+            {t("Επίπεδα Κατάκτησης", "Mastery Levels")}
+          </h2>
           <span className="ww-mono text-xs font-semibold text-[#3F8C5F]">
             {overallMasteryPct}% Mastered+
           </span>
@@ -145,23 +154,29 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
       {/* Daily & Overall Progress */}
       <div className="ww-tag-card mt-4 p-5">
         <h2 className="ww-display text-lg font-semibold text-[#211F1C]">
-          Ημερήσια &amp; Συνολική Πρόοδος
+          {t("Ημερήσια & Συνολική Πρόοδος", "Daily & Overall Progress")}
         </h2>
 
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-[#F5F0E6] p-3">
             <div className="ww-display text-xl font-bold text-[#211F1C]">{stats.todayAttempts}</div>
-            <div className="text-[11px] text-[#8B8680]">Προσπάθειες σήμερα</div>
+            <div className="text-[11px] text-[#8B8680]">
+              {t("Προσπάθειες σήμερα", "Attempts today")}
+            </div>
           </div>
           <div className="rounded-2xl bg-[#F5F0E6] p-3">
             <div className="ww-display text-xl font-bold text-[#211F1C]">{stats.todayUnique}</div>
-            <div className="text-[11px] text-[#8B8680]">Προτάσεις σήμερα</div>
+            <div className="text-[11px] text-[#8B8680]">
+              {t("Προτάσεις σήμερα", "Sentences today")}
+            </div>
           </div>
           <div className="rounded-2xl bg-[#F5F0E6] p-3">
             <div className="ww-display text-xl font-bold text-[#3F8C5F]">
               {stats.todayAccuracy !== null ? `${stats.todayAccuracy}%` : "—"}
             </div>
-            <div className="text-[11px] text-[#8B8680]">Ακρίβεια σήμερα</div>
+            <div className="text-[11px] text-[#8B8680]">
+              {t("Ακρίβεια σήμερα", "Accuracy today")}
+            </div>
           </div>
         </div>
 
@@ -188,8 +203,18 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
                   fontSize: 12,
                 }}
               />
-              <Bar dataKey="attempts" name="Προσπάθειες" fill="#ECE4D3" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="correct" name="Σωστές" fill="#4FA091" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="attempts"
+                name={t("Προσπάθειες", "Attempts")}
+                fill="#ECE4D3"
+                radius={[6, 6, 0, 0]}
+              />
+              <Bar
+                dataKey="correct"
+                name={t("Σωστές", "Correct")}
+                fill="#4FA091"
+                radius={[6, 6, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -199,7 +224,7 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="ww-tag-card p-5">
           <h2 className="ww-display text-base font-semibold text-[#211F1C]">
-            Ανά επίπεδο CEFR (έτοιμο για B2 / C1)
+            {t("Ανά επίπεδο CEFR (έτοιμο για B2 / C1)", "By CEFR level (B2 / C1 ready)")}
           </h2>
           <div className="mt-3 space-y-2.5">
             {SENTENCE_CEFR_LEVELS.map((lvl) => {
@@ -228,14 +253,14 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
 
         <div className="ww-tag-card p-5">
           <h2 className="ww-display text-base font-semibold text-[#211F1C]">
-            Κατανομή ανά κατηγορία
+            {t("Κατανομή ανά κατηγορία", "Breakdown by category")}
           </h2>
           <div className="mt-3 space-y-2">
-            {SENTENCE_TYPES.map((t) => {
-              const count = stats.byType[t];
-              const metaT = SENTENCE_TYPE_LABELS[t];
+            {SENTENCE_TYPES.map((tp) => {
+              const count = stats.byType[tp];
+              const metaT = SENTENCE_TYPE_LABELS[tp];
               return (
-                <div key={t} className="flex items-center justify-between text-xs">
+                <div key={tp} className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-2 text-[#4A453D]">
                     <span className="h-2 w-2 rounded-full" style={{ background: metaT.color }} />
                     {metaT.de}
@@ -250,20 +275,30 @@ export default function SentenceStatsView({ sentences, meta }: Props) {
 
       {/* Mastery Rules Reference */}
       <div className="ww-tag-card mt-4 p-4 text-xs leading-relaxed text-[#6B655D]">
-        <div className="font-semibold text-[#211F1C]">Πώς κατακτάται μια πρόταση;</div>
+        <div className="font-semibold text-[#211F1C]">
+          {t("Πώς κατακτάται μια πρόταση;", "How is a sentence mastered?")}
+        </div>
         <ul className="mt-1.5 list-disc space-y-1 pl-4">
           <li>
-            <strong>Consolidating:</strong> Τουλάχιστον 2 ακριβείς ενεργές επιτυχίες (Erinnern /
-            Lückentext / Schreiben) σε 2 είδη ή 2 ημέρες.
+            <strong>Consolidating:</strong>{" "}
+            {t(
+              "Τουλάχιστον 2 ακριβείς ενεργές επιτυχίες (Erinnern / Lückentext / Schreiben) σε 2 είδη ή 2 ημέρες.",
+              "At least 2 exact active successes (Erinnern / Lückentext / Schreiben) across 2 modes or 2 days.",
+            )}
           </li>
           <li>
-            <strong>Mastered:</strong> Τουλάχιστον 3 ακριβείς ενεργές επιτυχίες, τουλάχιστον 1
-            πλήρης γραφή (<em>Schreiben</em>), 2 ενεργά είδη και 2 καθυστερημένες επαναλήψεις σε
-            διαφορετικές ημέρες (1–7 ημέρες &amp; 3–14 ημέρες) χωρίς μεταγενέστερο λάθος.
+            <strong>Mastered:</strong>{" "}
+            {t(
+              "Τουλάχιστον 3 ακριβείς ενεργές επιτυχίες, τουλάχιστον 1 πλήρης γραφή (Schreiben), 2 ενεργά είδη και 2 καθυστερημένες επαναλήψεις σε διαφορετικές ημέρες (1–7 ημέρες & 3–14 ημέρες) χωρίς μεταγενέστερο λάθος.",
+              "At least 3 exact active successes, at least 1 full written recall (Schreiben), 2 active modes, and 2 delayed reviews on different days (1–7 days & 3–14 days) with no subsequent error.",
+            )}
           </li>
           <li>
-            <strong>Retained:</strong> Επιπλέον ακριβής ενεργή ανάκληση τουλάχιστον 14 ημέρες μετά
-            το Mastered.
+            <strong>Retained:</strong>{" "}
+            {t(
+              "Επιπλέον ακριβής ενεργή ανάκληση τουλάχιστον 14 ημέρες μετά το Mastered.",
+              "An additional exact active recall at least 14 days after reaching Mastered.",
+            )}
           </li>
         </ul>
       </div>

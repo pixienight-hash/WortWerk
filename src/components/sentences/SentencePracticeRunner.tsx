@@ -21,44 +21,50 @@ import {
   type SentenceEvalResult,
   type SentenceExerciseMode,
 } from "@/lib/sentences-data";
+import { useAppLang, sentencePrimaryMeaning, sentenceSecondaryMeaning } from "@/lib/i18n";
 
 const UMLAUTS = ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"] as const;
 
 const MODE_META: Record<
   Exclude<SentenceExerciseMode, "flashcard">,
-  { title: string; subtitle: string; color: string; bg: string; isActive: boolean }
+  { title: string; subtitleEl: string; subtitleEn: string; color: string; bg: string; isActive: boolean }
 > = {
   bedeutung: {
     title: "Bedeutung",
-    subtitle: "Επίλεξε τη σωστή σημασία",
+    subtitleEl: "Επίλεξε τη σωστή σημασία",
+    subtitleEn: "Choose the right meaning",
     color: "#4FA091",
     bg: "rgba(79,160,145,0.14)",
     isActive: false,
   },
   erinnern: {
     title: "Erinnern",
-    subtitle: "Ανακάλεσε τη γερμανική έκφραση",
+    subtitleEl: "Ανακάλεσε τη γερμανική έκφραση",
+    subtitleEn: "Recall the German expression",
     color: "#CB9146",
     bg: "rgba(203,145,70,0.15)",
     isActive: true,
   },
   lueckentext: {
     title: "Lückentext",
-    subtitle: "Συμπλήρωσε τα κενά",
+    subtitleEl: "Συμπλήρωσε τα κενά",
+    subtitleEn: "Fill in the blanks",
     color: "#8B7BC7",
     bg: "rgba(139,123,199,0.14)",
     isActive: true,
   },
   situation: {
     title: "Situation",
-    subtitle: "Επίλεξε την κατάλληλη έκφραση",
+    subtitleEl: "Επίλεξε την κατάλληλη έκφραση",
+    subtitleEn: "Choose the right expression for the situation",
     color: "#3C7D9B",
     bg: "rgba(60,125,155,0.14)",
     isActive: false,
   },
   schreiben: {
     title: "Schreiben",
-    subtitle: "Γράψε ολόκληρη την πρόταση από μνήμης",
+    subtitleEl: "Γράψε ολόκληρη την πρόταση από μνήμης",
+    subtitleEn: "Type the full sentence from memory",
     color: "#B5542E",
     bg: "rgba(181,84,46,0.13)",
     isActive: true,
@@ -109,13 +115,13 @@ export default function SentencePracticeRunner({
   onFinish,
   onRestart,
 }: Props) {
+  const { lang, isEn, t } = useAppLang();
   const [index, setIndex] = useState(0);
   const [selectedOptId, setSelectedOptId] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [clozeInputs, setClozeInputs] = useState<string[]>([]);
   const [activeBlankIdx, setActiveBlankIdx] = useState(0);
   const [hintUsed, setHintUsed] = useState(false);
-  const [meaningLang, setMeaningLang] = useState<"el" | "en">("el");
   const [checked, setChecked] = useState<{
     verdict: SentenceAnswerVerdict;
     feedback: string;
@@ -143,17 +149,20 @@ export default function SentencePracticeRunner({
       <div className="px-5 py-10 text-center">
         <div className="ww-tag-card p-6">
           <div className="ww-display text-lg font-semibold text-[#211F1C]">
-            Δεν υπάρχουν διαθέσιμες ερωτήσεις
+            {t("Δεν υπάρχουν διαθέσιμες ερωτήσεις", "No questions available")}
           </div>
           <p className="mt-2 text-sm text-[#8B8680]">
-            Δοκίμασε άλλο φίλτρο ή πρόσθεσε περισσότερες προτάσεις στη συλλογή σου.
+            {t(
+              "Δοκίμασε άλλο φίλτρο ή πρόσθεσε περισσότερες προτάσεις στη συλλογή σου.",
+              "Try another filter or add more sentences to your collection.",
+            )}
           </p>
           <button
             type="button"
             onClick={onFinish}
             className="mt-5 rounded-full bg-[#211F1C] px-6 py-3 text-sm font-semibold text-[#F5F0E6]"
           >
-            Επιστροφή
+            {t("Επιστροφή", "Back")}
           </button>
         </div>
       </div>
@@ -174,28 +183,35 @@ export default function SentencePracticeRunner({
             <Trophy size={26} />
           </div>
           <h2 className="ww-display mt-3 text-2xl font-bold text-[#211F1C]">
-            Ολοκλήρωση συνεδρίας
+            {t("Ολοκλήρωση συνεδρίας", "Session complete")}
           </h2>
           <p className="mt-1 text-sm text-[#8B8680]">{title}</p>
 
           <div className="mt-5 grid grid-cols-3 gap-2.5">
             <div className="rounded-2xl bg-[#3F8C5F]/10 p-3">
               <div className="ww-display text-2xl font-bold text-[#3F8C5F]">{exactCount}</div>
-              <div className="text-[11px] font-medium text-[#3F8C5F]">Ακριβείς</div>
+              <div className="text-[11px] font-medium text-[#3F8C5F]">
+                {t("Ακριβείς", "Exact")}
+              </div>
             </div>
             <div className="rounded-2xl bg-[#CB9146]/12 p-3">
               <div className="ww-display text-2xl font-bold text-[#9A6824]">{typoCount}</div>
-              <div className="text-[11px] font-medium text-[#9A6824]">Μικρό λάθος</div>
+              <div className="text-[11px] font-medium text-[#9A6824]">
+                {t("Μικρό λάθος", "Minor typo")}
+              </div>
             </div>
             <div className="rounded-2xl bg-[#C1543C]/10 p-3">
               <div className="ww-display text-2xl font-bold text-[#C1543C]">{wrongCount}</div>
-              <div className="text-[11px] font-medium text-[#C1543C]">Λανθασμένες</div>
+              <div className="text-[11px] font-medium text-[#C1543C]">
+                {t("Λανθασμένες", "Incorrect")}
+              </div>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl bg-[#F5F0E6] px-4 py-3 text-sm text-[#4A453D]">
-            Ποσοστό επιτυχίας: <strong className="ww-mono text-[#211F1C]">{pct}%</strong> (
-            {correctCount}/{outcomes.length})
+            {t("Ποσοστό επιτυχίας:", "Success rate:")}{" "}
+            <strong className="ww-mono text-[#211F1C]">{pct}%</strong> ({correctCount}/
+            {outcomes.length})
           </div>
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
@@ -205,7 +221,7 @@ export default function SentencePracticeRunner({
                 onClick={onRestart}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#E8E0CE] bg-[#F5F0E6] py-3 text-sm font-semibold text-[#211F1C]"
               >
-                <RotateCcw size={15} /> Νέος γύρος
+                <RotateCcw size={15} /> {t("Νέος γύρος", "New round")}
               </button>
             )}
             <button
@@ -213,7 +229,7 @@ export default function SentencePracticeRunner({
               onClick={onFinish}
               className="flex-1 rounded-full bg-[#211F1C] py-3 text-sm font-semibold text-[#F5F0E6]"
             >
-              Τέλος
+              {t("Τέλος", "Done")}
             </button>
           </div>
         </div>
@@ -226,6 +242,9 @@ export default function SentencePracticeRunner({
   const meta = MODE_META[current.mode];
   const typeMeta = SENTENCE_TYPE_LABELS[current.entry.type];
   const progressPct = Math.round(((index + (checked ? 1 : 0)) / questions.length) * 100);
+  const primaryMeaning = sentencePrimaryMeaning(current.entry, lang);
+  const secondaryMeaning = sentenceSecondaryMeaning(current.entry, lang);
+  const qLang = current.promptLanguage ?? "el";
 
   function insertUmlaut(ch: string) {
     if (checked) return;
@@ -259,7 +278,9 @@ export default function SentencePracticeRunner({
     ]);
     setChecked({
       verdict,
-      feedback: isCorrect ? "Σωστή επιλογή!" : "Λάθος επιλογή — δες τη σωστή απάντηση.",
+      feedback: isCorrect
+        ? t("Σωστή επιλογή!", "Correct choice!")
+        : t("Λάθος επιλογή — δες τη σωστή απάντηση.", "Wrong choice — see the correct answer."),
       updatedEntry: updated,
     });
   }
@@ -270,17 +291,23 @@ export default function SentencePracticeRunner({
 
     if (current.mode === "lueckentext" && current.blanks) {
       const results = current.blanks.map((blank, idx) =>
-        evaluateSentenceAnswer(clozeInputs[idx] ?? "", blank.answer, []),
+        evaluateSentenceAnswer(clozeInputs[idx] ?? "", blank.answer, [], lang),
       );
       const hasWrong = results.some((r) => r.verdict === "wrong");
       const hasTypo = results.some((r) => r.verdict === "typo");
       const verdict: SentenceAnswerVerdict = hasWrong ? "wrong" : hasTypo ? "typo" : "exact";
       const feedback =
         verdict === "exact"
-          ? "Ακριβώς σωστό!"
+          ? t("Ακριβώς σωστό!", "Exactly right!")
           : verdict === "typo"
-            ? "Σχεδόν σωστό — μικρό ορθογραφικό λάθος σε κάποιο κενό."
-            : "Λανθασμένη συμπλήρωση — δες τα σωστά κενά παρακάτω.";
+            ? t(
+                "Σχεδόν σωστό — μικρό ορθογραφικό λάθος σε κάποιο κενό.",
+                "Almost right — minor spelling typo in a blank.",
+              )
+            : t(
+                "Λανθασμένη συμπλήρωση — δες τα σωστά κενά παρακάτω.",
+                "Incorrect fill-in — see the correct blanks below.",
+              );
 
       const updated = onRecordAnswer(current.entry.id, {
         mode: "lueckentext",
@@ -306,6 +333,7 @@ export default function SentencePracticeRunner({
       typed,
       current.entry.sentence,
       current.entry.alternatives,
+      lang,
     );
     const updated = onRecordAnswer(current.entry.id, {
       mode: current.mode,
@@ -355,7 +383,7 @@ export default function SentencePracticeRunner({
         <button
           type="button"
           onClick={onFinish}
-          aria-label="Κλείσιμο άσκησης"
+          aria-label={t("Κλείσιμο άσκησης", "Close exercise")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ECE4D3] text-[#4A453D]"
         >
           <X size={16} />
@@ -396,27 +424,11 @@ export default function SentencePracticeRunner({
               {current.entry.cefr}
             </span>
           </div>
-          {current.mode === "bedeutung" && current.entry.meaning.el && current.entry.meaning.en && (
-            <div className="flex rounded-full border border-[#E8E0CE] bg-[#F5F0E6] p-0.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setMeaningLang("el")}
-                className={`rounded-full px-2.5 py-0.5 font-semibold ${meaningLang === "el" ? "bg-[#211F1C] text-[#F5F0E6]" : "text-[#8B8680]"}`}
-              >
-                ΕΛ
-              </button>
-              <button
-                type="button"
-                onClick={() => setMeaningLang("en")}
-                className={`rounded-full px-2.5 py-0.5 font-semibold ${meaningLang === "en" ? "bg-[#211F1C] text-[#F5F0E6]" : "text-[#8B8680]"}`}
-              >
-                EN
-              </button>
-            </div>
-          )}
         </div>
 
-        <p className="mt-2 text-xs text-[#8B8680]">{meta.subtitle}</p>
+        <p className="mt-2 text-xs text-[#8B8680]">
+          {isEn ? meta.subtitleEn : meta.subtitleEl}
+        </p>
 
         {/* A. BEDEUTUNG */}
         {current.mode === "bedeutung" && (
@@ -428,7 +440,7 @@ export default function SentencePracticeRunner({
               <button
                 type="button"
                 onClick={() => speakGerman(current.entry.sentence)}
-                aria-label="Ακρόαση πρότασης"
+                aria-label={t("Ακρόαση πρότασης", "Listen to sentence")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#4A453D] shadow-xs"
               >
                 <Volume2 size={16} />
@@ -438,11 +450,11 @@ export default function SentencePracticeRunner({
             <div className="mt-4 flex flex-col gap-2.5">
               {(current.options || []).map((opt) => {
                 const displayText =
-                  meaningLang === "en"
-                    ? opt.isCorrect
-                      ? current.entry.meaning.en || opt.label
-                      : opt.sublabel || opt.label
-                    : opt.label;
+                  lang === qLang
+                    ? opt.label
+                    : opt.isCorrect
+                      ? primaryMeaning || opt.label
+                      : opt.sublabel || opt.label;
                 const isSelected = selectedOptId === opt.id;
                 let border = "border-[#E8E0CE] bg-white text-[#211F1C]";
                 if (checked) {
@@ -471,14 +483,25 @@ export default function SentencePracticeRunner({
           <div className="mt-4">
             <div className="rounded-2xl border border-[#DCE8EE] bg-[#F2F7F9] p-4">
               <div className="ww-mono text-[10px] font-semibold uppercase tracking-wider text-[#3C7D9B]">
-                Περίσταση · {current.situationPrompt.context}
+                {t("Περίσταση", "Situation")} · {current.situationPrompt.context}
               </div>
-              <div className="mt-1.5 text-sm font-medium leading-relaxed text-[#211F1C]">
-                {current.situationPrompt.usage}
-              </div>
-              <div className="mt-2 text-xs text-[#6B7278]">
-                Θέλεις να εκφράσεις: «{current.situationPrompt.meaningCue}»
-              </div>
+              {(!isEn || !current.entry.usage) && (
+                <div className="mt-1.5 text-sm font-medium leading-relaxed text-[#211F1C]">
+                  {isEn
+                    ? `Choose the right German expression for: "${primaryMeaning}".`
+                    : current.situationPrompt.usage}
+                </div>
+              )}
+              {isEn && current.entry.usage && (
+                <div className="mt-1.5 text-sm font-medium leading-relaxed text-[#211F1C]">
+                  You want to express: &ldquo;{primaryMeaning}&rdquo;
+                </div>
+              )}
+              {!isEn && (
+                <div className="mt-2 text-xs text-[#6B7278]">
+                  Θέλεις να εκφράσεις: «{primaryMeaning}»
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex flex-col gap-2.5">
@@ -530,7 +553,7 @@ export default function SentencePracticeRunner({
                       {blank.prefix && <span>{blank.prefix}</span>}
                       <input
                         type="text"
-                        aria-label={`Κενό ${tok.blankIndex + 1}`}
+                        aria-label={t(`Κενό ${tok.blankIndex + 1}`, `Blank ${tok.blankIndex + 1}`)}
                         disabled={Boolean(checked)}
                         value={clozeInputs[tok.blankIndex] ?? ""}
                         onFocus={() => setActiveBlankIdx(tok.blankIndex!)}
@@ -549,7 +572,7 @@ export default function SentencePracticeRunner({
                 })}
               </div>
               <div className="mt-3 text-xs text-[#6B655D]">
-                Σημασία: {current.entry.meaning.el || current.entry.meaning.en}
+                {t("Σημασία:", "Meaning:")} {primaryMeaning}
               </div>
             </div>
 
@@ -574,7 +597,8 @@ export default function SentencePracticeRunner({
                     disabled={hintUsed}
                     className="inline-flex items-center gap-1 text-xs font-medium text-[#8B8680] hover:text-[#211F1C] disabled:opacity-50"
                   >
-                    <Lightbulb size={13} /> {hintUsed ? "Υπόδειξη ενεργή" : "Υπόδειξη"}
+                    <Lightbulb size={13} />{" "}
+                    {hintUsed ? t("Υπόδειξη ενεργή", "Hint active") : t("Υπόδειξη", "Hint")}
                   </button>
                 </div>
 
@@ -583,7 +607,7 @@ export default function SentencePracticeRunner({
                   disabled={clozeInputs.every((v) => !v.trim())}
                   className="mt-4 w-full rounded-full bg-[#211F1C] py-3.5 text-sm font-semibold text-[#F5F0E6] disabled:bg-[#D9D2C0] disabled:text-[#8B8680]"
                 >
-                  Έλεγχος απάντησης
+                  {t("Έλεγχος απάντησης", "Check answer")}
                 </button>
               </>
             )}
@@ -595,15 +619,15 @@ export default function SentencePracticeRunner({
           <form onSubmit={handleCheckTyped} className="mt-4">
             <div className="rounded-2xl bg-[#F5F0E6] p-4">
               <div className="ww-mono text-[10px] uppercase tracking-wider text-[#8B8680]">
-                {current.entry.context || typeMeta.el}
+                {current.entry.context || (isEn ? typeMeta.en : typeMeta.el)}
               </div>
               <div className="ww-display mt-1 text-lg font-semibold leading-snug text-[#211F1C]">
-                {current.entry.meaning.el || current.entry.meaning.en}
+                {primaryMeaning}
               </div>
-              {current.entry.meaning.en && current.entry.meaning.el && (
-                <div className="mt-1 text-xs text-[#8B8680]">{current.entry.meaning.en}</div>
+              {secondaryMeaning && (
+                <div className="mt-1 text-xs text-[#8B8680]">{secondaryMeaning}</div>
               )}
-              {current.mode === "erinnern" && current.entry.usage && (
+              {current.mode === "erinnern" && !isEn && current.entry.usage && (
                 <div className="mt-2 border-t border-[#E8E0CE] pt-2 text-xs text-[#6B655D]">
                   {current.entry.usage}
                 </div>
@@ -612,11 +636,11 @@ export default function SentencePracticeRunner({
 
             {hintUsed && !checked && (
               <div className="mt-2.5 rounded-xl border border-[#E8DFC8] bg-[#FCF8EE] px-3.5 py-2 text-xs text-[#7A5114]">
-                <span className="font-semibold">Υπόδειξη:</span>{" "}
+                <span className="font-semibold">{t("Υπόδειξη:", "Hint:")}</span>{" "}
                 <span className="ww-mono">{firstLettersHint}</span>
                 {current.entry.structure && (
                   <div className="mt-1 text-[11px] text-[#8B8680]">
-                    Δομή: {current.entry.structure}
+                    {t("Δομή:", "Structure:")} {current.entry.structure}
                   </div>
                 )}
               </div>
@@ -627,7 +651,7 @@ export default function SentencePracticeRunner({
                 textInputRef.current = el;
               }}
               rows={2}
-              aria-label="Γερμανική πρόταση"
+              aria-label={t("Γερμανική πρόταση", "German sentence")}
               disabled={Boolean(checked)}
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
@@ -639,8 +663,11 @@ export default function SentencePracticeRunner({
               }}
               placeholder={
                 current.mode === "schreiben"
-                  ? "Πληκτρολόγησε ολόκληρη τη γερμανική πρόταση από μνήμης…"
-                  : "Πληκτρολόγησε τη γερμανική έκφραση…"
+                  ? t(
+                      "Πληκτρολόγησε ολόκληρη τη γερμανική πρόταση από μνήμης…",
+                      "Type the full German sentence from memory…",
+                    )
+                  : t("Πληκτρολόγησε τη γερμανική έκφραση…", "Type the German expression…")
               }
               className="mt-3 w-full resize-none rounded-2xl border border-[#E8E0CE] bg-[#FAF8F4] p-3.5 text-sm font-medium text-[#211F1C] outline-none focus:border-[#211F1C] disabled:opacity-80"
             />
@@ -667,7 +694,12 @@ export default function SentencePracticeRunner({
                     className="inline-flex items-center gap-1 text-xs font-medium text-[#8B8680] hover:text-[#211F1C] disabled:opacity-50"
                   >
                     <Lightbulb size={13} />{" "}
-                    {hintUsed ? "Υπόδειξη ενεργή (δεν μετρά για Mastered)" : "Υπόδειξη"}
+                    {hintUsed
+                      ? t(
+                          "Υπόδειξη ενεργή (δεν μετρά για Mastered)",
+                          "Hint active (doesn't count toward Mastered)",
+                        )
+                      : t("Υπόδειξη", "Hint")}
                   </button>
                 </div>
 
@@ -676,7 +708,7 @@ export default function SentencePracticeRunner({
                   disabled={!typed.trim()}
                   className="mt-4 w-full rounded-full bg-[#211F1C] py-3.5 text-sm font-semibold text-[#F5F0E6] disabled:bg-[#D9D2C0] disabled:text-[#8B8680]"
                 >
-                  Έλεγχος απάντησης
+                  {t("Έλεγχος απάντησης", "Check answer")}
                 </button>
               </>
             )}
@@ -740,9 +772,9 @@ export default function SentencePracticeRunner({
                       }`}
                     >
                       {tok.status === "missing"
-                        ? `[λείπει: ${tok.expected}]`
+                        ? `[${t("λείπει", "missing")}: ${tok.expected}]`
                         : tok.status === "extra"
-                          ? `[επιπλέον: ${tok.actual}]`
+                          ? `[${t("επιπλέον", "extra")}: ${tok.actual}]`
                           : tok.status === "match"
                             ? tok.expected
                             : `${tok.actual} → ${tok.expected}`}
@@ -755,14 +787,14 @@ export default function SentencePracticeRunner({
               <div>
                 <div className="text-sm font-semibold text-[#211F1C]">{current.entry.sentence}</div>
                 <div className="text-xs text-[#6B655D]">
-                  {current.entry.meaning.el}
-                  {current.entry.meaning.en ? ` · ${current.entry.meaning.en}` : ""}
+                  {primaryMeaning}
+                  {secondaryMeaning ? ` · ${secondaryMeaning}` : ""}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => speakGerman(current.entry.sentence)}
-                aria-label="Ακρόαση σωστής πρότασης"
+                aria-label={t("Ακρόαση σωστής πρότασης", "Listen to correct sentence")}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECE4D3] text-[#211F1C]"
               >
                 <Volume2 size={15} />
@@ -778,8 +810,10 @@ export default function SentencePracticeRunner({
 
             {checked.verdict === "typo" && meta.isActive && (
               <div className="mt-1.5 text-[11px] text-[#7A5114]">
-                Σημείωση: Τα μικρά ορθογραφικά λάθη μετρούν στην εξάσκηση, αλλά για Mastered
-                απαιτείται ακριβής γραφή.
+                {t(
+                  "Σημείωση: Τα μικρά ορθογραφικά λάθη μετρούν στην εξάσκηση, αλλά για Mastered απαιτείται ακριβής γραφή.",
+                  "Note: Minor typos count for practice, but exact spelling is required for Mastered.",
+                )}
               </div>
             )}
 
@@ -788,7 +822,9 @@ export default function SentencePracticeRunner({
               onClick={handleNext}
               className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#211F1C] py-3 text-sm font-semibold text-[#F5F0E6]"
             >
-              {index + 1 >= questions.length ? "Ολοκλήρωση" : "Επόμενη ερώτηση"}
+              {index + 1 >= questions.length
+                ? t("Ολοκλήρωση", "Finish")
+                : t("Επόμενη ερώτηση", "Next question")}
               <ChevronRight size={16} />
             </button>
           </div>

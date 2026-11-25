@@ -23,6 +23,7 @@ import {
   type SentenceAnswerVerdict,
   type SentenceExerciseMode,
 } from "@/lib/sentences-data";
+import { useAppLang, sentencePrimaryMeaning, sentenceSecondaryMeaning } from "@/lib/i18n";
 import SentencePracticeRunner, { speakGerman } from "./SentencePracticeRunner";
 
 interface Props {
@@ -46,6 +47,7 @@ export default function SentenceLearnView({
   onRecordAnswer,
   onOpenExercises,
 }: Props) {
+  const { lang, t } = useAppLang();
   const [activeSession, setActiveSession] = useState<{
     title: string;
     questions: SentencePracticeQuestion[];
@@ -71,9 +73,12 @@ export default function SentenceLearnView({
 
   function startGuided() {
     const source = dueSentences.length > 0 ? dueSentences : sentences;
-    const questions = buildSentenceSession(source, "guided", sentences, { limit: 10 });
+    const questions = buildSentenceSession(source, "guided", sentences, {
+      limit: 10,
+      promptLanguage: lang,
+    });
     setActiveSession({
-      title: "Ημερήσια Εκμάθηση (Sätze)",
+      title: t("Ημερήσια Εκμάθηση (Sätze)", "Daily Learning (Sätze)"),
       questions,
       mode: "guided",
     });
@@ -81,9 +86,12 @@ export default function SentenceLearnView({
 
   function startMasteryFocus() {
     const source = consolidatingOrReady.length > 0 ? consolidatingOrReady : sentences;
-    const questions = buildSentenceSession(source, "schreiben", sentences, { limit: 8 });
+    const questions = buildSentenceSession(source, "schreiben", sentences, {
+      limit: 8,
+      promptLanguage: lang,
+    });
     setActiveSession({
-      title: "Ενεργή Ανάκληση (Schreiben)",
+      title: t("Ενεργή Ανάκληση (Schreiben)", "Active Recall (Schreiben)"),
       questions,
       mode: "mastery_focus",
     });
@@ -117,6 +125,8 @@ export default function SentenceLearnView({
     const card = flashcards[cardIdx]!;
     const typeMeta = SENTENCE_TYPE_LABELS[card.type];
     const statusMeta = SENTENCE_STATUS_LABELS[computeSentenceMastery(card).status];
+    const primaryMeaning = sentencePrimaryMeaning(card, lang);
+    const secondaryMeaning = sentenceSecondaryMeaning(card, lang);
 
     function advanceCard(delta: number) {
       if (delta > 0) {
@@ -142,13 +152,15 @@ export default function SentenceLearnView({
           <button
             type="button"
             onClick={() => setFlashcards(null)}
-            aria-label="Κλείσιμο Flashcards"
+            aria-label={t("Κλείσιμο Flashcards", "Close Flashcards")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ECE4D3] text-[#4A453D]"
           >
             <X size={16} />
           </button>
           <div className="text-center">
-            <div className="text-xs font-semibold text-[#211F1C]">Flashcards (Μελέτη)</div>
+            <div className="text-xs font-semibold text-[#211F1C]">
+              {t("Flashcards (Μελέτη)", "Flashcards (Study)")}
+            </div>
             <div className="ww-mono text-[11px] text-[#8B8680]">
               {cardIdx + 1} / {flashcards.length}
             </div>
@@ -156,7 +168,7 @@ export default function SentenceLearnView({
           <button
             type="button"
             onClick={() => speakGerman(card.sentence)}
-            aria-label="Ακρόαση κάρτας"
+            aria-label={t("Ακρόαση κάρτας", "Listen to card")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#211F1C] shadow-xs"
           >
             <Volume2 size={16} />
@@ -194,12 +206,14 @@ export default function SentenceLearnView({
 
             {flipped ? (
               <div className="ww-pop mt-5 space-y-2.5 border-t border-[#ECE4D3] pt-4">
-                <div className="text-base font-semibold text-[#3F8C5F]">{card.meaning.el}</div>
-                {card.meaning.en && <div className="text-xs text-[#6B655D]">{card.meaning.en}</div>}
+                <div className="text-base font-semibold text-[#3F8C5F]">{primaryMeaning}</div>
+                {secondaryMeaning && (
+                  <div className="text-xs text-[#6B655D]">{secondaryMeaning}</div>
+                )}
                 {card.usage && <div className="text-xs text-[#5E584F]">{card.usage}</div>}
                 {card.grammar && (
                   <div className="rounded-xl bg-[#F5F0E6] px-3 py-2 text-xs text-[#4A453D]">
-                    <strong>Γραμματική:</strong> {card.grammar}
+                    <strong>{t("Γραμματική:", "Grammar:")}</strong> {card.grammar}
                   </div>
                 )}
                 {card.memoryHook && (
@@ -208,13 +222,19 @@ export default function SentenceLearnView({
               </div>
             ) : (
               <div className="mt-8 text-xs text-[#A79F8E]">
-                Πάτησε την κάρτα για να δεις σημασία, χρήση &amp; γραμματική…
+                {t(
+                  "Πάτησε την κάρτα για να δεις σημασία, χρήση & γραμματική…",
+                  "Tap the card to reveal meaning, usage & grammar…",
+                )}
               </div>
             )}
           </div>
 
           <div className="text-[11px] text-[#A79F8E]">
-            Οι Flashcards χρησιμεύουν για εξοικείωση · η κατάκτηση γίνεται μέσω ενεργών ασκήσεων.
+            {t(
+              "Οι Flashcards χρησιμεύουν για εξοικείωση · η κατάκτηση γίνεται μέσω ενεργών ασκήσεων.",
+              "Flashcards are for exposure · mastery is earned through active recall exercises.",
+            )}
           </div>
         </button>
 
@@ -225,21 +245,22 @@ export default function SentenceLearnView({
             onClick={() => advanceCard(-1)}
             className="flex items-center justify-center gap-1 rounded-full border border-[#E8E0CE] bg-white px-4 py-3 text-xs font-semibold text-[#211F1C] disabled:opacity-40"
           >
-            <ChevronLeft size={15} /> Προηγούμενη
+            <ChevronLeft size={15} /> {t("Προηγούμενη", "Previous")}
           </button>
           <button
             type="button"
             onClick={() => setFlipped((f) => !f)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#E8E0CE] bg-[#F5F0E6] py-3 text-xs font-semibold text-[#211F1C]"
           >
-            <RotateCcw size={14} /> {flipped ? "Απόκρυψη" : "Αποκάλυψη"}
+            <RotateCcw size={14} /> {flipped ? t("Απόκρυψη", "Hide") : t("Αποκάλυψη", "Reveal")}
           </button>
           <button
             type="button"
             onClick={() => advanceCard(1)}
             className="flex items-center justify-center gap-1 rounded-full bg-[#211F1C] px-5 py-3 text-xs font-semibold text-[#F5F0E6]"
           >
-            {cardIdx + 1 >= flashcards.length ? "Τέλος" : "Επόμενη"} <ChevronRight size={15} />
+            {cardIdx + 1 >= flashcards.length ? t("Τέλος", "Done") : t("Επόμενη", "Next")}{" "}
+            <ChevronRight size={15} />
           </button>
         </div>
       </div>
@@ -273,21 +294,27 @@ export default function SentenceLearnView({
             <Flame size={20} className="text-[#C1543C]" />
             <span className="ww-display text-2xl font-bold text-[#211F1C]">{stats.streak}</span>
           </div>
-          <div className="mt-0.5 text-xs text-[#8B8680]">Ημέρες σειράς (Sätze)</div>
+          <div className="mt-0.5 text-xs text-[#8B8680]">
+            {t("Ημέρες σειράς (Sätze)", "Day streak (Sätze)")}
+          </div>
         </div>
       </div>
 
       {/* Hero Guided Session Card */}
       <div className="ww-hero-card mt-4 p-6 text-[#F5F0E6]">
-        <div className="text-xs text-[#F5F0E6]/65">Πρόγραμμα επανάληψης προτάσεων</div>
+        <div className="text-xs text-[#F5F0E6]/65">
+          {t("Πρόγραμμα επανάληψης προτάσεων", "Sentence review schedule")}
+        </div>
         <div className="ww-display mt-1.5 text-3xl font-bold">
           {dueSentences.length > 0
-            ? `${dueSentences.length} προς επανάληψη`
-            : `${sentences.length} προτάσεις`}
+            ? t(`${dueSentences.length} προς επανάληψη`, `${dueSentences.length} due for review`)
+            : t(`${sentences.length} προτάσεις`, `${sentences.length} sentences`)}
         </div>
         <p className="mt-2 text-xs leading-relaxed text-[#F5F0E6]/75">
-          Επιλέγει αυτόματα τις πιο επείγουσες προτάσεις και την άσκηση που χρειάζεται η καθεμία για
-          να φτάσει σε Mastered &amp; Retained.
+          {t(
+            "Επιλέγει αυτόματα τις πιο επείγουσες προτάσεις και την άσκηση που χρειάζεται η καθεμία για να φτάσει σε Mastered & Retained.",
+            "Automatically picks the most urgent sentences and the exercise each needs to reach Mastered & Retained.",
+          )}
         </p>
 
         <button
@@ -296,7 +323,7 @@ export default function SentenceLearnView({
           disabled={sentences.length === 0}
           className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#F5F0E6] py-3.5 text-sm font-bold text-[#211F1C] disabled:opacity-50"
         >
-          Έναρξη εκμάθησης <ChevronRight size={16} />
+          {t("Έναρξη εκμάθησης", "Start learning")} <ChevronRight size={16} />
         </button>
 
         <button
@@ -305,7 +332,7 @@ export default function SentenceLearnView({
           disabled={sentences.length === 0}
           className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full border border-[#F5F0E6]/25 bg-[#F5F0E6]/10 py-3 text-xs font-semibold text-[#F5F0E6] disabled:opacity-50"
         >
-          <Layers size={14} /> Flashcards (Μελέτη καρτών)
+          <Layers size={14} /> {t("Flashcards (Μελέτη καρτών)", "Flashcards (Study deck)")}
         </button>
       </div>
 
@@ -323,12 +350,18 @@ export default function SentenceLearnView({
             </div>
             <div>
               <div className="text-sm font-semibold text-[#211F1C]">
-                Πλήρης Ανάκληση (Schreiben)
+                {t("Πλήρης Ανάκληση (Schreiben)", "Full Recall (Schreiben)")}
               </div>
               <div className="text-xs text-[#8B8680]">
                 {consolidatingOrReady.length > 0
-                  ? `${consolidatingOrReady.length} προτάσεις σε εξέλιξη προς Mastered`
-                  : "Γράψε ολόκληρες προτάσεις από μνήμης"}
+                  ? t(
+                      `${consolidatingOrReady.length} προτάσεις σε εξέλιξη προς Mastered`,
+                      `${consolidatingOrReady.length} sentences progressing toward Mastered`,
+                    )
+                  : t(
+                      "Γράψε ολόκληρες προτάσεις από μνήμης",
+                      "Type complete sentences from memory",
+                    )}
               </div>
             </div>
           </div>
@@ -342,7 +375,7 @@ export default function SentenceLearnView({
         >
           <div>
             <div className="text-sm font-semibold text-[#211F1C]">
-              Επιλογή συγκεκριμένης άσκησης (Übungen)
+              {t("Επιλογή συγκεκριμένης άσκησης (Übungen)", "Choose a specific exercise (Übungen)")}
             </div>
             <div className="text-xs text-[#8B8680]">
               Bedeutung · Erinnern · Lückentext · Situation · Schreiben
@@ -355,9 +388,12 @@ export default function SentenceLearnView({
       {/* Today summary */}
       <div className="ww-tag-card mt-4 p-4">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold text-[#211F1C]">Σήμερα (Sätze &amp; Ausdrücke)</span>
+          <span className="font-semibold text-[#211F1C]">
+            {t("Σήμερα (Sätze & Ausdrücke)", "Today (Sätze & Ausdrücke)")}
+          </span>
           <span className="ww-mono text-[#8B8680]">
-            {stats.todayAttempts} προσπάθειες · {stats.todayUnique} προτάσεις
+            {stats.todayAttempts} {t("προσπάθειες", "attempts")} · {stats.todayUnique}{" "}
+            {t("προτάσεις", "sentences")}
           </span>
         </div>
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#ECE4D3]">
@@ -367,9 +403,10 @@ export default function SentenceLearnView({
           />
         </div>
         <div className="mt-1.5 flex justify-between text-[11px] text-[#8B8680]">
-          <span>Ημερήσιος στόχος: 10 προτάσεις</span>
+          <span>{t("Ημερήσιος στόχος: 10 προτάσεις", "Daily goal: 10 sentences")}</span>
           <span>
-            Ακρίβεια σήμερα: {stats.todayAccuracy !== null ? `${stats.todayAccuracy}%` : "—"}
+            {t("Ακρίβεια σήμερα:", "Today's accuracy:")}{" "}
+            {stats.todayAccuracy !== null ? `${stats.todayAccuracy}%` : "—"}
           </span>
         </div>
       </div>

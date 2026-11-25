@@ -15,6 +15,16 @@ export default defineConfig({
       host: "0.0.0.0",
       port: 3000,
     },
+    optimizeDeps: {
+      include: [
+        "class-variance-authority",
+        "clsx",
+        "tailwind-merge",
+        "@radix-ui/react-slot",
+        "lucide-react",
+        "recharts",
+      ],
+    },
     ...(!isLovableSandbox
       ? {
           environments: {

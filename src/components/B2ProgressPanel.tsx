@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { b2ProgressSummary, normalizedWord, type B2StageKey, type Word } from "@/lib/wortwerk-data";
 import MasteryEvidence from "@/components/MasteryEvidence";
+import { useAppLang, wordPrimaryMeanings, type AppLang } from "@/lib/i18n";
 
 type HeroMetric = "readiness" | "assimilated" | "mastered";
 type AnalyticsTab = "games" | "daily7d" | "pos" | "tests";
@@ -47,43 +48,55 @@ type Props = {
 
 const STAGE_META: {
   key: B2StageKey;
-  label: string;
-  short: string;
+  labelEl: string;
+  labelEn: string;
+  shortEl: string;
+  shortEn: string;
   color: string;
   bg: string;
 }[] = [
   {
     key: "Retained",
-    label: "Διατήρηση",
-    short: "Διατήρ.",
+    labelEl: "Διατήρηση",
+    labelEn: "Retained",
+    shortEl: "Διατήρ.",
+    shortEn: "Retain.",
     color: "#3F8C5F",
     bg: "rgba(63,140,95,0.14)",
   },
   {
     key: "Provisionally mastered",
-    label: "Κατάκτηση",
-    short: "Κατάκτ.",
+    labelEl: "Κατάκτηση",
+    labelEn: "Mastered",
+    shortEl: "Κατάκτ.",
+    shortEn: "Master.",
     color: "#6FA96B",
     bg: "rgba(111,169,107,0.16)",
   },
   {
     key: "Consolidating",
-    label: "Αφομοίωση",
-    short: "Αφομ.",
+    labelEl: "Αφομοίωση",
+    labelEn: "Consolidating",
+    shortEl: "Αφομ.",
+    shortEn: "Consol.",
     color: "#CB9146",
     bg: "rgba(203,145,70,0.16)",
   },
   {
     key: "Learning",
-    label: "Εκμάθηση",
-    short: "Εκμάθ.",
+    labelEl: "Εκμάθηση",
+    labelEn: "Learning",
+    shortEl: "Εκμάθ.",
+    shortEn: "Learn.",
     color: "#4FA091",
     bg: "rgba(79,160,145,0.16)",
   },
   {
     key: "New",
-    label: "Νέες",
-    short: "Νέες",
+    labelEl: "Νέες",
+    labelEn: "New",
+    shortEl: "Νέες",
+    shortEn: "New",
     color: "#A79F8E",
     bg: "rgba(167,159,142,0.16)",
   },
@@ -97,14 +110,31 @@ const GAME_COLORS: Record<string, string> = {
   recall: "#CB9146",
 };
 
-const POS_LABELS: Record<string, string> = {
-  Nomen: "Ουσιαστικά",
-  Verb: "Ρήματα",
-  Adjektiv: "Επίθετα",
-  Sonstiges: "Λοιπά",
+const GAME_LABELS_EN: Record<string, string> = {
+  flashcard: "Flashcards",
+  mc: "Multiple Choice",
+  fill: "Fill Blank",
+  context: "Context",
+  recall: "Recall",
 };
 
+const POS_LABELS: Record<string, { el: string; en: string }> = {
+  Nomen: { el: "Ουσιαστικά", en: "Nouns" },
+  Verb: { el: "Ρήματα", en: "Verbs" },
+  Adjektiv: { el: "Επίθετα", en: "Adjectives" },
+  Sonstiges: { el: "Λοιπά", en: "Other" },
+};
+
+function formatDayShort(dateStr: string, fallback: string, lang: AppLang): string {
+  if (lang !== "en") return fallback;
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return fallback;
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.toLocaleDateString("en-US", { weekday: "short" });
+}
+
 export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: Props) {
+  const { lang, t } = useAppLang();
   const [heroMetric, setHeroMetric] = useState<HeroMetric>("readiness");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("games");
   const [gameMetricMode, setGameMetricMode] = useState<"accuracy" | "attempts">("accuracy");
@@ -118,15 +148,33 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
 
   const summary = useMemo(() => b2ProgressSummary(vocab, Date.now()), [vocab]);
 
+  const localizedByGame = useMemo(
+    () =>
+      summary.byGame.map((g) => ({
+        ...g,
+        displayLabel: lang === "en" ? GAME_LABELS_EN[g.mode] || g.label : g.label,
+      })),
+    [summary.byGame, lang],
+  );
+
+  const localizedDaily7d = useMemo(
+    () =>
+      summary.daily7d.map((pt) => ({
+        ...pt,
+        displayDay: formatDayShort(pt.date, pt.day, lang),
+      })),
+    [summary.daily7d, lang],
+  );
+
   const b2Tests = useMemo(
     () =>
       (testLogs || [])
-        .filter((t) => t && t.scope === "b2" && t.total > 0)
-        .map((t, idx) => ({
-          ...t,
+        .filter((x) => x && x.scope === "b2" && x.total > 0)
+        .map((x, idx) => ({
+          ...x,
           idx: idx + 1,
-          label: `${t.date.slice(8, 10)}/${t.date.slice(5, 7)}`,
-          pct: Math.round(((t.exact + t.near) / t.total) * 100),
+          label: `${x.date.slice(8, 10)}/${x.date.slice(5, 7)}`,
+          pct: Math.round(((x.exact + x.near) / x.total) * 100),
         })),
     [testLogs],
   );
@@ -138,7 +186,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
       return {
         pct,
         primary: `${summary.mastered} / ${total}`,
-        subtitle: "Πλήρως τεκμηριωμένες B2 λέξεις",
+        subtitle: t("Πλήρως τεκμηριωμένες B2 λέξεις", "Fully verified B2 words"),
         color: "#6FA96B",
       };
     }
@@ -147,34 +195,34 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
       return {
         pct,
         primary: `${summary.assimilated} / ${total}`,
-        subtitle: "B2 λέξεις με 3+ ακριβείς ανακλήσεις",
+        subtitle: t("B2 λέξεις με 3+ ακριβείς ανακλήσεις", "B2 words with 3+ accurate recalls"),
         color: "#CB9146",
       };
     }
     return {
       pct: summary.avgReadinessPct,
-      primary: `${summary.started} / ${total} ενεργές`,
-      subtitle: "Μέσος δείκτης ετοιμότητας τεκμηρίωσης B2",
+      primary: t(`${summary.started} / ${total} ενεργές`, `${summary.started} / ${total} active`),
+      subtitle: t("Μέσος δείκτης ετοιμότητας τεκμηρίωσης B2", "Average B2 mastery readiness score"),
       color: "#4FA091",
     };
-  }, [heroMetric, summary]);
+  }, [heroMetric, summary, t]);
 
   const activeDayPoint = useMemo(() => {
     const fallback =
-      [...summary.daily7d].reverse().find((d) => d.attempts > 0) ||
-      summary.daily7d[summary.daily7d.length - 1];
-    return summary.daily7d.find((d) => d.date === selectedDay) || fallback;
-  }, [summary.daily7d, selectedDay]);
+      [...localizedDaily7d].reverse().find((d) => d.attempts > 0) ||
+      localizedDaily7d[localizedDaily7d.length - 1];
+    return localizedDaily7d.find((d) => d.date === selectedDay) || fallback;
+  }, [localizedDaily7d, selectedDay]);
 
   const gameInsight = useMemo(() => {
-    const scored = summary.byGame.filter((g) => !g.isExposure && g.attempts > 0);
+    const scored = localizedByGame.filter((g) => !g.isExposure && g.attempts > 0);
     if (!scored.length) return null;
     const sorted = [...scored].sort((a, b) => b.accuracy - a.accuracy || b.attempts - a.attempts);
     const best = sorted[0];
     const weakest = sorted[sorted.length - 1];
     if (!best || !weakest) return null;
     return { best, weakest };
-  }, [summary.byGame]);
+  }, [localizedByGame]);
 
   const filteredWords = useMemo(() => {
     const q = normalizedWord(search);
@@ -187,7 +235,10 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
       if (q) {
         const hitWord = normalizedWord(item.label).includes(q);
         const hitGreek = normalizedWord(item.greek).includes(q);
-        if (!hitWord && !hitGreek) return false;
+        const hitEnglish = ((item.word?.meaning?.english) || []).some((e: string) =>
+          normalizedWord(e).includes(q),
+        );
+        if (!hitWord && !hitGreek && !hitEnglish) return false;
       }
       return true;
     });
@@ -201,7 +252,6 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
         return b.attempts - a.attempts;
       }
-      // "closest": non-mastered closest to 100% first, then mastered
       if (a.mastered !== b.mastered) return a.mastered ? 1 : -1;
       if (b.readinessPct !== a.readinessPct) return b.readinessPct - a.readinessPct;
       if (a.due !== b.due) return a.due ? -1 : 1;
@@ -211,7 +261,6 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
 
   const visibleWords = showAllWords ? filteredWords : filteredWords.slice(0, 10);
 
-  // SVG Ring geometry
   const ringSize = 104;
   const strokeWidth = 9;
   const radius = (ringSize - strokeWidth) / 2;
@@ -222,10 +271,13 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
     return (
       <div className="ww-tag-card ww-pop p-5 text-center">
         <div className="ww-display text-lg font-semibold text-[#211F1C]">
-          Δεν υπάρχουν ενεργές λέξεις B2
+          {t("Δεν υπάρχουν ενεργές λέξεις B2", "No active B2 words")}
         </div>
         <p className="mt-1 text-xs text-[#8B8680]">
-          Πρόσθεσε ή ενεργοποίησε λέξεις με επίπεδο B2 για να παρακολουθείς τη δυναμική τους πρόοδο.
+          {t(
+            "Πρόσθεσε ή ενεργοποίησε λέξεις με επίπεδο B2 για να παρακολουθείς τη δυναμική τους πρόοδο.",
+            "Add or enable B2 words to track their live progress.",
+          )}
         </p>
       </div>
     );
@@ -239,11 +291,11 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
           <div className="flex items-center gap-1.5 text-[#A7E3D7]">
             <Target size={15} />
             <span className="ww-mono text-[11px] uppercase tracking-wider">
-              Πρόοδος B2 · Live Evidence
+              {t("Πρόοδος B2 · Live Evidence", "B2 Progress · Live Evidence")}
             </span>
           </div>
           <span className="ww-mono rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] text-[#F5F0E6]">
-            {summary.total} λέξεις
+            {summary.total} {t("λέξεις", "words")}
           </span>
         </div>
 
@@ -289,14 +341,14 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             <div className="mt-1 text-xs leading-snug text-[#F5F0E6]/72">{heroStats.subtitle}</div>
             <div
               role="group"
-              aria-label="Κριτήριο δείκτη B2"
+              aria-label={t("Κριτήριο δείκτη B2", "B2 indicator metric")}
               className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-white/10 p-1"
             >
               {(
                 [
-                  { id: "readiness", label: "Ετοιμ." },
-                  { id: "assimilated", label: "Αφομ." },
-                  { id: "mastered", label: "Κατάκτ." },
+                  { id: "readiness", label: t("Ετοιμ.", "Ready") },
+                  { id: "assimilated", label: t("Αφομ.", "Assim.") },
+                  { id: "mastered", label: t("Κατάκτ.", "Master.") },
                 ] as const
               ).map((opt) => {
                 const active = heroMetric === opt.id;
@@ -325,21 +377,21 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             <div className="ww-mono text-sm font-bold text-[#A7E3D7]">
               {summary.scoredAttempts > 0 ? `${summary.evidenceAccuracy}%` : "—"}
             </div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Συν. ακρίβεια</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">{t("Συν. ακρίβεια", "Accuracy")}</div>
           </div>
           <div>
             <div className="ww-mono text-sm font-bold text-[#E5C17B]">
               {summary.activeRecallAttempts > 0 ? `${summary.activeRecallAccuracy}%` : "—"}
             </div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Ενεργή ανάκλ.</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">{t("Ενεργή ανάκλ.", "Active recall")}</div>
           </div>
           <div>
             <div className="ww-mono text-sm font-bold text-[#F2D9A0]">{summary.due}</div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Οφείλονται</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">{t("Οφείλονται", "Due")}</div>
           </div>
           <div>
             <div className="ww-mono text-sm font-bold text-[#F5F0E6]">{summary.typedVerified}</div>
-            <div className="text-[10px] text-[#F5F0E6]/65">Γραφή Recall</div>
+            <div className="text-[10px] text-[#F5F0E6]/65">{t("Γραφή Recall", "Typed recall")}</div>
           </div>
         </div>
 
@@ -350,7 +402,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#F5F0E6] py-3 text-sm font-bold text-[#211F1C] transition-opacity hover:opacity-95"
           >
             <Sparkles size={15} />
-            Εξάσκηση &amp; Τεστ μόνο B2
+            {t("Εξάσκηση & Τεστ μόνο B2", "B2-Only Practice & Test")}
             <ChevronRight size={15} />
           </button>
         )}
@@ -361,9 +413,14 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         <div className="ww-tag-hole" />
         <div className="flex items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-bold text-[#211F1C]">Στάδια κατάκτησης B2</div>
+            <div className="text-sm font-bold text-[#211F1C]">
+              {t("Στάδια κατάκτησης B2", "B2 Mastery Stages")}
+            </div>
             <div className="text-[11px] text-[#8B8680]">
-              Πάτησε ένα στάδιο για δυναμικό φιλτράρισμα των B2 λέξεων
+              {t(
+                "Πάτησε ένα στάδιο για δυναμικό φιλτράρισμα των B2 λέξεων",
+                "Tap a stage to filter B2 words dynamically",
+              )}
             </div>
           </div>
           {stageFilter !== "all" && (
@@ -372,7 +429,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
               onClick={() => setStageFilter("all")}
               className="text-[11px] font-semibold text-[#4FA091] underline"
             >
-              Όλα
+              {t("Όλα", "All")}
             </button>
           )}
         </div>
@@ -385,7 +442,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             return (
               <div
                 key={st.key}
-                title={`${st.label}: ${count}`}
+                title={`${lang === "en" ? st.labelEn : st.labelEl}: ${count}`}
                 style={{
                   width: `${widthPct}%`,
                   background: st.color,
@@ -422,7 +479,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                   {count}
                 </div>
                 <div className="mt-0.5 truncate text-[10px] font-medium text-[#4A453D]">
-                  {st.short}
+                  {lang === "en" ? st.shortEn : st.shortEl}
                 </div>
               </button>
             );
@@ -430,7 +487,9 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         </div>
         {summary.previouslyKnown > 0 && (
           <div className="mt-2.5 flex items-center justify-between border-t border-[#ECE4D3] pt-2 text-[11px] text-[#6B655B]">
-            <span>Γνωρίζω ήδη (εκτός κατάκτησης WortWerk)</span>
+            <span>
+              {t("Γνωρίζω ήδη (εκτός κατάκτησης WortWerk)", "Already know (excluded from WortWerk mastery)")}
+            </span>
             <strong className="ww-mono text-[#2D6E62]">{summary.previouslyKnown}</strong>
           </div>
         )}
@@ -441,24 +500,24 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         <div className="ww-tag-hole" />
         <div
           role="group"
-          aria-label="Δυναμική ανάλυση B2"
+          aria-label={t("Δυναμική ανάλυση B2", "B2 live analytics")}
           className="grid grid-cols-4 gap-1 rounded-xl border border-[#ECE4D3] bg-[#FAF7F0] p-1"
         >
           {(
             [
-              { id: "games", label: "Παιχνίδια" },
-              { id: "daily7d", label: "7 Ημ." },
-              { id: "pos", label: "Είδη" },
-              { id: "tests", label: "Τεστ B2" },
+              { id: "games", label: t("Παιχνίδια", "Games") },
+              { id: "daily7d", label: t("7 Ημ.", "7 Days") },
+              { id: "pos", label: t("Είδη", "POS") },
+              { id: "tests", label: t("Τεστ B2", "B2 Tests") },
             ] as const
-          ).map((t) => {
-            const active = analyticsTab === t.id;
+          ).map((tab) => {
+            const active = analyticsTab === tab.id;
             return (
               <button
-                key={t.id}
+                key={tab.id}
                 type="button"
                 aria-pressed={active}
-                onClick={() => setAnalyticsTab(t.id)}
+                onClick={() => setAnalyticsTab(tab.id)}
                 className="rounded-lg py-1.5 text-[11.5px] transition-all"
                 style={{
                   background: active ? "#FFFFFF" : "transparent",
@@ -467,7 +526,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                   boxShadow: active ? "0 1px 3px rgba(33,31,28,0.08)" : "none",
                 }}
               >
-                {t.label}
+                {tab.label}
               </button>
             );
           })}
@@ -476,7 +535,9 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         {analyticsTab === "games" && (
           <div className="mt-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-semibold text-[#211F1C]">Επίδοση B2 ανά παιχνίδι</div>
+              <div className="text-xs font-semibold text-[#211F1C]">
+                {t("Επίδοση B2 ανά παιχνίδι", "B2 performance by game")}
+              </div>
               <div className="flex gap-1 rounded-lg bg-[#FAF7F0] p-0.5 text-[10.5px]">
                 <button
                   type="button"
@@ -498,26 +559,29 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                     color: gameMetricMode === "attempts" ? "#F5F0E6" : "#8B8680",
                   }}
                 >
-                  Προσπ.
+                  {t("Προσπ.", "Tries")}
                 </button>
               </div>
             </div>
 
             {summary.evidenceAttempts === 0 ? (
               <div className="py-8 text-center text-xs text-[#8B8680]">
-                Δεν υπάρχουν ακόμα καταγεγραμμένες B2 προσπάθειες. Ξεκίνα μια εξάσκηση ή τεστ B2!
+                {t(
+                  "Δεν υπάρχουν ακόμα καταγεγραμμένες B2 προσπάθειες. Ξεκίνα μια εξάσκηση ή τεστ B2!",
+                  "No B2 attempts logged yet. Start a B2 practice or test!",
+                )}
               </div>
             ) : (
               <>
                 <div className="mt-2 h-[155px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={summary.byGame}
+                      data={localizedByGame}
                       margin={{ top: 8, right: 6, left: -22, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#ECE4D3" vertical={false} />
                       <XAxis
-                        dataKey="label"
+                        dataKey="displayLabel"
                         tick={{ fill: "#6B655B", fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -536,15 +600,18 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                           if (!pt) return null;
                           return (
                             <div className="rounded-lg border border-[#E8E0CE] bg-white px-2.5 py-2 text-xs shadow-sm">
-                              <div className="font-bold text-[#211F1C]">{pt.label}</div>
+                              <div className="font-bold text-[#211F1C]">{pt.displayLabel}</div>
                               <div className="mt-0.5 text-[#4A453D]">
                                 {pt.attempts > 0
                                   ? `${pt.correct}/${pt.attempts} (${pt.accuracy}%)`
-                                  : "Χωρίς προσπάθειες"}
+                                  : t("Χωρίς προσπάθειες", "No attempts")}
                               </div>
                               {pt.isExposure && (
                                 <div className="text-[10.5px] text-[#8B8680]">
-                                  Αυτοαξιολόγηση (δεν μετράει ως κατάκτηση)
+                                  {t(
+                                    "Αυτοαξιολόγηση (δεν μετράει ως κατάκτηση)",
+                                    "Self-rating (does not count toward mastery)",
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -552,7 +619,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                         }}
                       />
                       <Bar dataKey={gameMetricMode} radius={[5, 5, 0, 0]} maxBarSize={28}>
-                        {summary.byGame.map((g) => (
+                        {localizedByGame.map((g) => (
                           <Cell
                             key={g.mode}
                             fill={g.attempts > 0 ? GAME_COLORS[g.mode] || "#4FA091" : "#E8E0CE"}
@@ -566,14 +633,14 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                 {gameInsight && (
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE4D3] pt-2 text-[11px] text-[#4A453D]">
                     <span>
-                      Δυνατότερο:{" "}
-                      <strong className="text-[#3F8C5F]">{gameInsight.best.label}</strong> (
+                      {t("Δυνατότερο:", "Strongest:")}{" "}
+                      <strong className="text-[#3F8C5F]">{gameInsight.best.displayLabel}</strong> (
                       {gameInsight.best.accuracy}%)
                     </span>
                     {gameInsight.weakest.mode !== gameInsight.best.mode && (
                       <span>
-                        Για ενίσχυση:{" "}
-                        <strong className="text-[#C1543C]">{gameInsight.weakest.label}</strong> (
+                        {t("Για ενίσχυση:", "Needs work:")}{" "}
+                        <strong className="text-[#C1543C]">{gameInsight.weakest.displayLabel}</strong> (
                         {gameInsight.weakest.accuracy}%)
                       </span>
                     )}
@@ -588,17 +655,17 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
           <div className="mt-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-semibold text-[#211F1C]">
-                Δραστηριότητα B2 · Τελευταίες 7 ημέρες
+                {t("Δραστηριότητα B2 · Τελευταίες 7 ημέρες", "B2 Activity · Last 7 days")}
               </div>
               <span className="ww-mono text-[11px] text-[#4FA091]">
-                {summary.daily7d.reduce((s, d) => s + d.attempts, 0)} προσπάθειες
+                {localizedDaily7d.reduce((s, d) => s + d.attempts, 0)} {t("προσπάθειες", "attempts")}
               </span>
             </div>
 
             <div className="mt-2 h-[145px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
-                  data={summary.daily7d}
+                  data={localizedDaily7d}
                   margin={{ top: 8, right: 6, left: -24, bottom: 0 }}
                   onClick={(state) => {
                     const pt = state?.activePayload?.[0]?.payload;
@@ -613,7 +680,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ECE4D3" vertical={false} />
                   <XAxis
-                    dataKey="day"
+                    dataKey="displayDay"
                     tick={{ fill: "#8B8680", fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
@@ -633,15 +700,18 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                       return (
                         <div className="rounded-lg border border-[#E8E0CE] bg-white px-2.5 py-2 text-xs shadow-sm">
                           <div className="font-bold text-[#211F1C]">
-                            {pt.day}
-                            {pt.isToday ? " · Σήμερα" : ""}
+                            {pt.displayDay}
+                            {pt.isToday ? t(" · Σήμερα", " · Today") : ""}
                           </div>
-                          <div className="mt-0.5 text-[#4FA091] font-semibold">
-                            {pt.attempts} προσπάθειες ({pt.uniqueWords} B2 λέξεις)
+                          <div className="mt-0.5 font-semibold text-[#4FA091]">
+                            {t(
+                              `${pt.attempts} προσπάθειες (${pt.uniqueWords} B2 λέξεις)`,
+                              `${pt.attempts} attempts (${pt.uniqueWords} B2 words)`,
+                            )}
                           </div>
                           {pt.scored > 0 && (
                             <div className="text-[11px] text-[#4A453D]">
-                              Ακρίβεια: {pt.accuracy}% ({pt.correct}/{pt.scored})
+                              {t("Ακρίβεια:", "Accuracy:")} {pt.accuracy}% ({pt.correct}/{pt.scored})
                             </div>
                           )}
                         </div>
@@ -658,7 +728,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                     dot={false}
                   />
                   <Bar yAxisId="att" dataKey="attempts" radius={[4, 4, 0, 0]} maxBarSize={20}>
-                    {summary.daily7d.map((pt) => (
+                    {localizedDaily7d.map((pt) => (
                       <Cell
                         key={pt.date}
                         cursor="pointer"
@@ -677,7 +747,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             </div>
 
             <div className="mt-2 grid grid-cols-7 gap-1">
-              {summary.daily7d.map((pt) => {
+              {localizedDaily7d.map((pt) => {
                 const active = activeDayPoint?.date === pt.date;
                 return (
                   <button
@@ -692,7 +762,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                       fontWeight: active ? 700 : 500,
                     }}
                   >
-                    <div>{pt.isToday ? "Σήμ." : pt.day.slice(0, 2)}</div>
+                    <div>{pt.isToday ? t("Σήμ.", "Tod.") : pt.displayDay.slice(0, 2)}</div>
                     <div className="ww-mono text-[9.5px] text-[#4FA091]">{pt.attempts}</div>
                   </button>
                 );
@@ -702,12 +772,12 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             {activeDayPoint && (
               <div className="mt-2 flex items-center justify-between border-t border-[#ECE4D3] pt-2 text-[11.5px] text-[#4A453D]">
                 <span>
-                  {activeDayPoint.day}
-                  {activeDayPoint.isToday ? " (Σήμερα)" : ""}
+                  {activeDayPoint.displayDay}
+                  {activeDayPoint.isToday ? t(" (Σήμερα)", " (Today)") : ""}
                 </span>
                 <span>
-                  <strong>{activeDayPoint.uniqueWords}</strong> B2 λέξεις ·{" "}
-                  <strong>{activeDayPoint.attempts}</strong> προσπ.
+                  <strong>{activeDayPoint.uniqueWords}</strong> {t("B2 λέξεις", "B2 words")} ·{" "}
+                  <strong>{activeDayPoint.attempts}</strong> {t("προσπ.", "tries")}
                   {activeDayPoint.scored > 0 ? ` · ${activeDayPoint.accuracy}%` : ""}
                 </span>
               </div>
@@ -718,14 +788,16 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         {analyticsTab === "pos" && (
           <div className="mt-3 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-[#211F1C]">B2 ανά γραμματικό είδος</div>
+              <div className="text-xs font-semibold text-[#211F1C]">
+                {t("B2 ανά γραμματικό είδος", "B2 by part of speech")}
+              </div>
               {posFilter !== "all" && (
                 <button
                   type="button"
                   onClick={() => setPosFilter("all")}
                   className="text-[11px] font-semibold text-[#4FA091] underline"
                 >
-                  Καθαρισμός φίλτρου
+                  {t("Καθαρισμός φίλτρου", "Clear filter")}
                 </button>
               )}
             </div>
@@ -738,6 +810,11 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                 ? Math.round(((row.started - row.assimilated) / row.total) * 100)
                 : 0;
               const active = posFilter === row.type;
+              const posLabel = POS_LABELS[row.type]
+                ? lang === "en"
+                  ? POS_LABELS[row.type].en
+                  : POS_LABELS[row.type].el
+                : row.type;
               return (
                 <button
                   key={row.type}
@@ -754,7 +831,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                 >
                   <div className="flex items-baseline justify-between text-xs">
                     <span className="font-semibold text-[#211F1C]">
-                      {POS_LABELS[row.type] || row.type}{" "}
+                      {posLabel}{" "}
                       <span className="font-normal text-[#8B8680]">({row.type})</span>
                     </span>
                     <span className="ww-mono text-[11px] font-semibold text-[#4FA091]">
@@ -786,8 +863,10 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                     />
                   </div>
                   <div className="mt-1 text-[10.5px] text-[#8B8680]">
-                    {row.mastered} κατακτημένες · {row.assimilated} αφομοιωμένες · {row.remaining}{" "}
-                    νέες
+                    {t(
+                      `${row.mastered} κατακτημένες · ${row.assimilated} αφομοιωμένες · ${row.remaining} νέες`,
+                      `${row.mastered} mastered · ${row.assimilated} assimilated · ${row.remaining} new`,
+                    )}
                   </div>
                 </button>
               );
@@ -800,11 +879,13 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             {b2Tests.length === 0 ? (
               <div className="py-6 text-center">
                 <div className="text-xs font-semibold text-[#211F1C]">
-                  Δεν υπάρχει ακόμα ιστορικό τεστ B2
+                  {t("Δεν υπάρχει ακόμα ιστορικό τεστ B2", "No B2 test history yet")}
                 </div>
                 <p className="mt-1 text-[11.5px] text-[#8B8680]">
-                  Ολοκλήρωσε ένα τεστ B2 (όλα τα παιχνίδια, 20 τυχαίες λέξεις) για να δεις την
-                  εξέλιξη βαθμολογίας.
+                  {t(
+                    "Ολοκλήρωσε ένα τεστ B2 (όλα τα παιχνίδια, 20 τυχαίες λέξεις) για να δεις την εξέλιξη βαθμολογίας.",
+                    "Complete a B2 test (all games, 20 random words) to see your score trend.",
+                  )}
                 </p>
                 {onStartB2Practice && (
                   <button
@@ -812,19 +893,19 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                     onClick={onStartB2Practice}
                     className="mt-3 rounded-full bg-[#4FA091] px-4 py-2 text-xs font-bold text-white"
                   >
-                    Μετάβαση στο Τεστ B2
+                    {t("Μετάβαση στο Τεστ B2", "Go to B2 Test")}
                   </button>
                 )}
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#211F1C] flex items-center gap-1">
+                  <span className="flex items-center gap-1 font-semibold text-[#211F1C]">
                     <TrendingUp size={14} color="#4FA091" />
-                    Εξέλιξη Τεστ B2 ({b2Tests.length})
+                    {t(`Εξέλιξη Τεστ B2 (${b2Tests.length})`, `B2 Test Trend (${b2Tests.length})`)}
                   </span>
                   <span className="ww-mono text-[11px] font-semibold text-[#4FA091]">
-                    Καλύτερο: {Math.max(...b2Tests.map((t) => t.pct))}%
+                    {t("Καλύτερο:", "Best:")} {Math.max(...b2Tests.map((x) => x.pct))}%
                   </span>
                 </div>
                 <div className="mt-2 h-[140px] w-full">
@@ -856,7 +937,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                           return (
                             <div className="rounded-lg border border-[#E8E0CE] bg-white px-2.5 py-2 text-xs shadow-sm">
                               <div className="font-bold text-[#211F1C]">
-                                Τεστ B2 #{pt.idx} ({pt.date})
+                                {t(`Τεστ B2 #${pt.idx}`, `B2 Test #${pt.idx}`)} ({pt.date})
                               </div>
                               <div className="mt-0.5 font-bold text-[#4FA091]">
                                 {pt.pct}% ({pt.exact}+{pt.near}/{pt.total})
@@ -880,18 +961,18 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                   {b2Tests
                     .slice(-4)
                     .reverse()
-                    .map((t) => (
+                    .map((x) => (
                       <div
-                        key={`${t.date}-${t.idx}`}
+                        key={`${x.date}-${x.idx}`}
                         className="flex items-center justify-between py-1.5 text-xs"
                       >
                         <span className="text-[#8B8680]">
-                          {t.date} · Τεστ #{t.idx}
+                          {x.date} · {t(`Τεστ #${x.idx}`, `Test #${x.idx}`)}
                         </span>
                         <span>
-                          <strong className="text-[#211F1C]">{t.pct}%</strong>{" "}
+                          <strong className="text-[#211F1C]">{x.pct}%</strong>{" "}
                           <span className="text-[#A79F8E]">
-                            ({t.exact}+{t.near}/{t.total})
+                            ({x.exact}+{x.near}/{x.total})
                           </span>
                         </span>
                       </div>
@@ -909,10 +990,13 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         <div className="flex items-center justify-between gap-2">
           <div>
             <div className="text-sm font-bold text-[#211F1C]">
-              Λέξεις B2 ({filteredWords.length}/{summary.total})
+              {t("Λέξεις B2", "B2 Words")} ({filteredWords.length}/{summary.total})
             </div>
             <div className="text-[11px] text-[#8B8680]">
-              Πάτησε μια λέξη για πλήρη ανάλυση τεκμηρίωσης
+              {t(
+                "Πάτησε μια λέξη για πλήρη ανάλυση τεκμηρίωσης",
+                "Tap a word for full evidence breakdown",
+              )}
             </div>
           </div>
           <button
@@ -928,7 +1012,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
               color: stageFilter === "due" ? "#FFFFFF" : "#C1543C",
             }}
           >
-            Οφείλονται ({summary.due})
+            {t("Οφείλονται", "Due")} ({summary.due})
           </button>
         </div>
 
@@ -945,20 +1029,20 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                 setSearch(e.target.value);
                 setShowAllWords(false);
               }}
-              aria-label="Αναζήτηση B2 λέξης"
-              placeholder="Αναζήτηση B2 λέξης..."
+              aria-label={t("Αναζήτηση B2 λέξης", "Search B2 word")}
+              placeholder={t("Αναζήτηση B2 λέξης...", "Search B2 word...")}
               className="h-9 w-full rounded-lg border border-[#E8E0CE] bg-[#FAF7F0] pl-8 pr-2.5 text-xs text-[#211F1C] outline-none focus:border-[#4FA091]"
             />
           </div>
           <select
-            aria-label="Ταξινόμηση B2 λέξεων"
+            aria-label={t("Ταξινόμηση B2 λέξεων", "Sort B2 words")}
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as WordSort)}
             className="h-9 rounded-lg border border-[#E8E0CE] bg-[#FAF7F0] px-2 text-xs text-[#211F1C] outline-none"
           >
-            <option value="closest">Πιο κοντά</option>
-            <option value="weakest">Ακρίβεια ↑</option>
-            <option value="az">Α–Ω</option>
+            <option value="closest">{t("Πιο κοντά", "Closest")}</option>
+            <option value="weakest">{t("Ακρίβεια ↑", "Accuracy ↑")}</option>
+            <option value="az">{t("Α–Ω", "A–Z")}</option>
           </select>
         </div>
 
@@ -966,15 +1050,23 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
             {stageFilter !== "all" && (
               <span className="rounded-full bg-[#F5F0E6] px-2 py-0.5 text-[#4A453D]">
-                Φίλτρο:{" "}
+                {t("Φίλτρο:", "Filter:")}{" "}
                 {stageFilter === "due"
-                  ? "Οφείλονται"
-                  : STAGE_META.find((s) => s.key === stageFilter)?.label || stageFilter}
+                  ? t("Οφείλονται", "Due")
+                  : (() => {
+                      const st = STAGE_META.find((s) => s.key === stageFilter);
+                      return st ? (lang === "en" ? st.labelEn : st.labelEl) : stageFilter;
+                    })()}
               </span>
             )}
             {posFilter !== "all" && (
               <span className="rounded-full bg-[#F5F0E6] px-2 py-0.5 text-[#4A453D]">
-                Είδος: {POS_LABELS[posFilter] || posFilter}
+                {t("Είδος:", "Type:")}{" "}
+                {POS_LABELS[posFilter]
+                  ? lang === "en"
+                    ? POS_LABELS[posFilter].en
+                    : POS_LABELS[posFilter].el
+                  : posFilter}
               </span>
             )}
             <button
@@ -986,7 +1078,7 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
               }}
               className="font-semibold text-[#4FA091] underline"
             >
-              Επαναφορά
+              {t("Επαναφορά", "Reset")}
             </button>
           </div>
         )}
@@ -994,13 +1086,14 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
         <div className="mt-3 divide-y divide-[#F1EBDF]">
           {visibleWords.length === 0 ? (
             <div className="py-6 text-center text-xs text-[#8B8680]">
-              Καμία B2 λέξη δεν ταιριάζει με τα φίλτρα.
+              {t("Καμία B2 λέξη δεν ταιριάζει με τα φίλτρα.", "No B2 words match these filters.")}
             </div>
           ) : (
             visibleWords.map((item) => {
               const isOpen = expandedId === item.id;
               const stageInfo =
                 STAGE_META.find((s) => s.key === item.level) || STAGE_META[STAGE_META.length - 1]!;
+              const meaningLine = wordPrimaryMeanings(item.word, lang).join(", ") || item.greek;
               return (
                 <div key={item.id} className="py-2">
                   <button
@@ -1016,13 +1109,13 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
                         </span>
                         {item.due && (
                           <span
-                            title="Οφείλεται σήμερα"
+                            title={t("Οφείλεται σήμερα", "Due today")}
                             className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#C1543C]"
                           />
                         )}
                       </div>
                       <div className="truncate text-[11.5px] text-[#8B8680]">
-                        {item.greek} · {item.type}
+                        {meaningLine} · {item.type}
                       </div>
                     </div>
 
@@ -1071,8 +1164,11 @@ export default function B2ProgressPanel({ vocab, testLogs, onStartB2Practice }: 
             className="mt-3 w-full rounded-lg border border-[#E8E0CE] bg-[#FAF7F0] py-2 text-xs font-semibold text-[#211F1C]"
           >
             {showAllWords
-              ? "Εμφάνιση λιγότερων"
-              : `Εμφάνιση όλων των ${filteredWords.length} B2 λέξεων`}
+              ? t("Εμφάνιση λιγότερων", "Show fewer")
+              : t(
+                  `Εμφάνιση όλων των ${filteredWords.length} B2 λέξεων`,
+                  `Show all ${filteredWords.length} B2 words`,
+                )}
           </button>
         )}
       </div>

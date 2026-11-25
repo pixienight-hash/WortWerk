@@ -17,6 +17,7 @@ import SentencesModule from '@/components/sentences/SentencesModule';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, Cell, AreaChart, Area, ComposedChart, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import VOCAB_SEED from '@/data/vocab-seed.json';
+import { LanguageProvider, useAppLang, wordPrimaryMeanings, wordSecondaryMeanings } from '@/lib/i18n';
 
 /* ============================== DATA ============================== */
 
@@ -47,6 +48,33 @@ const PREFIX_MEANINGS = {
   "wieder-": { label: "wieder-", meaning: "Επανάληψη μιας δράσης (wiederholen = επαναλαμβάνω, wiedersehen = ξανασυναντώ)." },
   "teil-": { label: "teil-", meaning: "Μερική συμμετοχή σε κάτι (teilnehmen = συμμετέχω)." },
   "weg-": { label: "weg-", meaning: "Κίνηση μακριά, απομάκρυνση από τον τρέχοντα τόπο (weggehen = φεύγω, wegnehmen = αφαιρώ)." },
+};
+
+const PREFIX_MEANINGS_EN = {
+  "-": { label: "Base form", meaning: "The unchanged meaning of the root, without a prefix." },
+  "be-": { label: "be-", meaning: "Often makes a verb transitive (taking a direct object) and directs the action straight at something/someone — e.g. suchen → besuchen (to visit)." },
+  "ent-": { label: "ent-", meaning: "Indicates removal, separation, or reversal — something leaves, disappears, or is undone (entschließen = decide, entkommen = escape)." },
+  "er-": { label: "er-", meaning: "Shows achieving a result or completing a process — bringing something to a successful outcome (erreichen = achieve, erfahren = learn/find out)." },
+  "ge-": { label: "ge-", meaning: "Often has a collective or summarizing meaning, or is purely grammatical (Partizip II)." },
+  "ver-": { label: "ver-", meaning: "Very versatile prefix: can express a change of state, a mistake/loss, or complete fulfillment of an action (verschließen = lock completely, versuchen = try)." },
+  "zer-": { label: "zer-", meaning: "Indicates destruction or breaking apart — something breaks into pieces (zerstören = destroy, zerreißen = tear apart)." },
+  "an-": { label: "an-", meaning: "Indicates approach, contact, or the start of an action (ankommen = arrive, anschließen = connect)." },
+  "auf-": { label: "auf-", meaning: "Upward movement, opening, or the start of a process (aufgehen = rise, aufschließen = unlock)." },
+  "aus-": { label: "aus-", meaning: "Outward movement or full completion of an action (ausschließen = exclude, aussuchen = choose)." },
+  "ein-": { label: "ein-", meaning: "Inward movement or enclosing/including something inside another (einschließen = include, einsteigen = board/get in)." },
+  "mit-": { label: "mit-", meaning: "Participation, shared action with others (mitkommen = come along, mitmachen = take part)." },
+  "nach-": { label: "nach-", meaning: "Temporal or spatial sequence — something happens after or follows (nachdenken = think over, nachgehen = follow/pursue)." },
+  "vor-": { label: "vor-", meaning: "Spatially or temporally 'in front' — often suggesting or presenting something (vorschlagen = suggest, vorstellen = introduce)." },
+  "zu-": { label: "zu-", meaning: "Direction toward something, often increase or addition (zunehmen = increase, zuschließen = lock)." },
+  "ab-": { label: "ab-", meaning: "Movement away, reduction, or completion of a process (abnehmen = decrease/lose weight, abschließen = conclude)." },
+  "um-": { label: "um-", meaning: "Change of direction, form, or state — reshaping or switching (umsteigen = transfer, umziehen = move house)." },
+  "unter-": { label: "unter-", meaning: "Spatially 'underneath', or thorough, careful examination (untergehen = sink/set, untersuchen = examine)." },
+  "über-": { label: "über-", meaning: "Spatially 'over', excess, or taking something on (übernehmen = take over, überzeugen = convince)." },
+  "durch-": { label: "durch-", meaning: "Movement 'from start to finish', or thorough completeness (durchlesen = read through, durchführen = carry out)." },
+  "wider-": { label: "wider-", meaning: "Indicates resistance or opposition (widersprechen = contradict, widerstehen = resist)." },
+  "wieder-": { label: "wieder-", meaning: "Repetition of an action (wiederholen = repeat, wiedersehen = see again)." },
+  "teil-": { label: "teil-", meaning: "Partial participation in something (teilnehmen = participate)." },
+  "weg-": { label: "weg-", meaning: "Movement away from the current place (weggehen = leave, wegnehmen = take away)." },
 };
 
 /* ============================== HELPERS ============================== */
@@ -192,11 +220,11 @@ function coreForm(s) {
   t = t.replace(/^sich\s+/i, "");
   return t;
 }
-function makeHint(target) {
+function makeHint(target, lang = "el") {
   const t = coreForm(target);
   if (!t) return "";
   const parts = t.split(" ").map((p) => p.charAt(0) + new Array(p.length).join("_"));
-  return parts.join("  ") + "   (" + t.replace(/ /g, "").length + " γράμματα)";
+  return parts.join("  ") + "   (" + t.replace(/ /g, "").length + (lang === "en" ? " letters)" : " γράμματα)");
 }
 function hasFill(w) {
   const ex = w && w.exercise;
@@ -558,12 +586,13 @@ function ConfidenceDots({ confidence = 1 }) {
 const CONFIDENCE_COLORS = ["#E0584A", "#E0794A", "#CB9146", "#B8A23E", "#8FAE5A", "#6FA96B"];
 
 function ConfidenceBar({ confidence = 0, width = 56 }) {
+  const { t } = useAppLang();
   const c = clamp(confidence, 0, 5);
   const pct = Math.max(10, (c / 5) * 100);
   return (
     <div
-      title={`Πρόγραμμα επανάληψης (στάδιο ${c}/5)`}
-      aria-label={`Στάδιο επανάληψης ${c} από 5`}
+      title={t(`Πρόγραμμα επανάληψης (στάδιο ${c}/5)`, `Review schedule (stage ${c}/5)`)}
+      aria-label={t(`Στάδιο επανάληψης ${c} από 5`, `Review stage ${c} of 5`)}
       style={{ width, height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden", flexShrink: 0 }}
     >
       <div style={{ height: "100%", width: `${pct}%`, background: CONFIDENCE_COLORS[c], borderRadius: 999, transition: "width 0.3s" }} />
@@ -603,16 +632,17 @@ function TopBar({ title, subtitle, right }) {
 /* ============================== BOTTOM NAV ============================== */
 
 function BottomNav({ tab, setTab, dueCount }) {
+  const { t } = useAppLang();
   const items = [
     { id: "home", label: "Home", icon: Home },
     { id: "vocab", label: "Wörter", icon: BookOpen },
     { id: "learn", label: "Lernen", icon: Sparkles, isCenter: true },
-    { id: "families", label: "Οικογένειες", icon: Layers },
+    { id: "families", label: t("Οικογένειες", "Families"), icon: Layers },
     { id: "stats", label: "Fortschritt", icon: BarChart3 },
   ];
   return (
     <nav
-      aria-label="Κύρια πλοήγηση"
+      aria-label={t("Κύρια πλοήγηση", "Main navigation")}
       style={{
         position: "sticky", bottom: 0, left: 0, right: 0,
         background: "rgba(253,250,243,0.94)", backdropFilter: "blur(10px)",
@@ -684,6 +714,7 @@ function buildQuestions(words, mode) {
 
 function InfoButton({ word, onHelp }) {
   const ctx = useContext(AppCtx);
+  const { t } = useAppLang();
   const [show, setShow] = useState(false);
   const [cur, setCur] = useState(word);
   return (
@@ -698,7 +729,7 @@ function InfoButton({ word, onHelp }) {
       />
       <button
         onClick={(e) => { e.stopPropagation(); onHelp?.(); setCur(word); setShow(true); }}
-        aria-label="Πληροφορίες λέξης"
+        aria-label={t("Πληροφορίες λέξης", "Word details")}
         style={{
           position: "absolute", top: 14, right: 14, width: 28, height: 28, borderRadius: "50%",
           background: "rgba(139,123,199,0.14)", border: "1px solid #D9CFEF", color: "#8B7BC7",
@@ -714,9 +745,12 @@ function InfoButton({ word, onHelp }) {
 }
 
 function FlashcardQ({ item, onAnswer }) {
+  const { lang, t } = useAppLang();
   const [flipped, setFlipped] = useState(false);
   const questionStart = useRef(now());
   const w = item.word;
+  const primaryMeaning = wordPrimaryMeanings(w, lang).join(" · ");
+  const secondaryMeaning = wordSecondaryMeanings(w, lang).join(", ");
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
       <div
@@ -738,20 +772,26 @@ function FlashcardQ({ item, onAnswer }) {
             <div className="ww-display" style={{ fontSize: 32, fontWeight: 600, marginTop: 14 }}>
               {w.word}
             </div>
-            <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 10 }}>Tippen zum Umdrehen</div>
+            <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 10 }}>
+              {t("Tippen zum Umdrehen", "Tap to flip")}
+            </div>
           </div>
         ) : (
           <div key="back" className="ww-flip" style={{ width: "100%" }}>
             <div className="ww-display" style={{ fontSize: 23, fontWeight: 700, color: "#FFFFFF" }}>
-              {(w.meaning?.greek || []).join(" · ")}
+              {primaryMeaning}
             </div>
-            <div style={{ fontSize: 14, color: "#D8D2C4", marginTop: 5 }}>
-              {(w.meaning?.english || []).join(", ")}
-            </div>
+            {secondaryMeaning && (
+              <div style={{ fontSize: 14, color: "#D8D2C4", marginTop: 5 }}>
+                {secondaryMeaning}
+              </div>
+            )}
             {w.examples?.[0]?.de && (
               <div style={{ fontSize: 14, marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.18)", paddingTop: 12, lineHeight: 1.55, color: "#F0EBDD" }}>
                 <div>„{w.examples[0].de}“</div>
-                <div style={{ color: "#C9BFA5", marginTop: 3 }}>{w.examples[0].el}</div>
+                <div style={{ color: "#C9BFA5", marginTop: 3 }}>
+                  {lang === "en" ? (w.examples[0].en || w.examples[0].el) : w.examples[0].el}
+                </div>
               </div>
             )}
             {((w.synonyms || []).length > 0 || (w.antonyms || []).length > 0) && (
@@ -767,12 +807,12 @@ function FlashcardQ({ item, onAnswer }) {
             )}
             {w.etymology && (
               <div style={{ fontSize: 13.5, marginTop: 10, color: "#E8E2D4", borderTop: "1px solid rgba(255,255,255,0.18)", paddingTop: 10, lineHeight: 1.55, textAlign: "left" }}>
-                <span style={{ fontWeight: 700, color: "#FFFFFF" }}>📜 Προέλευση:</span> {w.etymology}
+                <span style={{ fontWeight: 700, color: "#FFFFFF" }}>{t("📜 Προέλευση:", "📜 Origin:")}</span> {w.etymology}
               </div>
             )}
             {w.funFact && (
               <div style={{ fontSize: 13.5, marginTop: 10, color: "#F2D9A0", borderTop: "1px solid rgba(255,255,255,0.18)", paddingTop: 10, lineHeight: 1.55, textAlign: "left" }}>
-                <span style={{ fontWeight: 700, color: "#FFC877" }}>🌟 Wissenswert:</span> {w.funFact}
+                <span style={{ fontWeight: 700, color: "#FFC877" }}>🌟 {t("Wissenswert:", "Good to know:")}</span> {w.funFact}
               </div>
             )}
           </div>
@@ -785,21 +825,21 @@ function FlashcardQ({ item, onAnswer }) {
             style={{ flex: 1, padding: "10px 4px", borderRadius: 12, border: "1px solid #F0C9C2", background: "rgba(224,88,74,0.12)", color: "#E0584A", fontWeight: 600, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
           >
             <span>Nochmal</span>
-            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.8 }}>Ξανά σύντομα</span>
+            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.8 }}>{t("Ξανά σύντομα", "Again soon")}</span>
           </button>
           <button
             onClick={() => onAnswer(true, 1, { mode: "flashcard", selfRating: "Gut", prompt: w.word, answer: "Gut", responseTime: now() - questionStart.current })}
             style={{ flex: 1, padding: "10px 4px", borderRadius: 12, border: "1px solid #C8E0C5", background: "rgba(111,169,107,0.12)", color: "#6FA96B", fontWeight: 600, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
           >
             <span>Gut</span>
-            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.85 }}>Καλά</span>
+            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.85 }}>{t("Καλά", "Good")}</span>
           </button>
           <button
             onClick={() => onAnswer(true, 2, { mode: "flashcard", selfRating: "Super", prompt: w.word, answer: "Super", responseTime: now() - questionStart.current })}
             style={{ flex: 1, padding: "10px 4px", borderRadius: 12, border: "1px solid #E8D6B0", background: "rgba(203,145,70,0.15)", color: "#CB9146", fontWeight: 600, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
           >
             <span>Super</span>
-            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.85 }}>Άνετα</span>
+            <span style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.85 }}>{t("Άνετα", "Easy")}</span>
           </button>
         </div>
       )}
@@ -808,18 +848,20 @@ function FlashcardQ({ item, onAnswer }) {
 }
 
 function McQ({ item, allWords, onAnswer }) {
+  const { lang, t } = useAppLang();
   const w = item.word;
   const [picked, setPicked] = useState(null);
   const questionStart = useRef(now());
   const continueRef = useRef(null);
+  const correctList = wordPrimaryMeanings(w, lang);
+  const correctAnswer = correctList[0] || "—";
   const options = useMemo(() => {
-    const correct = (w.meaning?.greek || ["—"])[0];
+    const correct = wordPrimaryMeanings(w, lang)[0] || "—";
     const distractorPool = shuffle(
-      allWords.filter((x) => x.word !== w.word && x.meaning?.greek?.[0])
-    ).slice(0, 3).map((x) => x.meaning.greek[0]);
+      allWords.filter((x) => x.word !== w.word && wordPrimaryMeanings(x, lang)[0] && wordPrimaryMeanings(x, lang)[0] !== correct)
+    ).slice(0, 3).map((x) => wordPrimaryMeanings(x, lang)[0]);
     return shuffle([correct, ...distractorPool]);
-  }, [w.word]);
-  const correctAnswer = (w.meaning?.greek || ["—"])[0];
+  }, [w.word, lang]);
 
   useEffect(() => {
     if (picked) continueRef.current?.focus();
@@ -831,7 +873,7 @@ function McQ({ item, allWords, onAnswer }) {
   }
 
   const isCorrect = picked === correctAnswer;
-  const allMeanings = (w.meaning?.greek || []).join(" · ");
+  const allMeanings = correctList.join(" · ");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
@@ -842,7 +884,9 @@ function McQ({ item, allWords, onAnswer }) {
         <div className="ww-display" style={{ fontSize: 28, fontWeight: 600, marginTop: 12 }}>
           {w.word}
         </div>
-        <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 6 }}>Was bedeutet das?</div>
+        <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 6 }}>
+          {t("Was bedeutet das?", "What does this mean?")}
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, width: "100%", maxWidth: 340 }}>
         {options.map((opt, i) => {
@@ -879,14 +923,14 @@ function McQ({ item, allWords, onAnswer }) {
           }}
         >
           <div style={{ fontWeight: 700, color: isCorrect ? "#3F8C5F" : "#E0584A" }}>
-            {isCorrect ? "✓ Σωστά!" : `Λάθος — σωστό: ${correctAnswer}`}
+            {isCorrect ? t("✓ Σωστά!", "✓ Correct!") : t(`Λάθος — σωστό: ${correctAnswer}`, `Incorrect — correct: ${correctAnswer}`)}
           </div>
-          {allMeanings && (w.meaning?.greek?.length > 1 || !isCorrect) && (
+          {allMeanings && (correctList.length > 1 || !isCorrect) && (
             <div style={{ color: "#4A453D", marginTop: 3 }}>{allMeanings}</div>
           )}
           {w.examples?.[0]?.de && (
             <div style={{ fontSize: 12, color: "#8B8680", marginTop: 5 }}>
-              „{w.examples[0].de}“ {w.examples[0].el ? `— ${w.examples[0].el}` : ""}
+              „{w.examples[0].de}“ {(lang === "en" ? (w.examples[0].en || w.examples[0].el) : w.examples[0].el) ? `— ${lang === "en" ? (w.examples[0].en || w.examples[0].el) : w.examples[0].el}` : ""}
             </div>
           )}
           {!isCorrect && w.memoryHook && (
@@ -900,7 +944,7 @@ function McQ({ item, allWords, onAnswer }) {
           onClick={() => onAnswer(isCorrect, 1, { mode: "mc", exact: isCorrect, status: isCorrect ? "exact" : "wrong", prompt: w.word, answer: picked, hintUsed: !!item.helpUsed, responseTime: now() - questionStart.current })}
           style={{ width: "100%", maxWidth: 340, padding: "14px 0", borderRadius: 12, background: "#211F1C", border: "none", color: "#F5F0E6", fontWeight: 700, fontSize: 14 }}
         >
-          Συνέχεια
+          {t("Συνέχεια", "Continue")}
         </button>
       )}
     </div>
@@ -908,6 +952,7 @@ function McQ({ item, allWords, onAnswer }) {
 }
 
 function FillQ({ item, onAnswer, testMode = false }) {
+  const { lang, t } = useAppLang();
   const w = item.word;
   const [value, setValue] = useState("");
   const questionStart = useRef(now());
@@ -918,6 +963,7 @@ function FillQ({ item, onAnswer, testMode = false }) {
   const continueRef = useRef(null);
   const target = (w.exercise && w.exercise.answer) || "";
   const parts = ((w.exercise && w.exercise.sentence) || "").split("______");
+  const meaningHint = wordPrimaryMeanings(w, lang).join(", ");
 
   useEffect(() => {
     if (result) continueRef.current?.focus();
@@ -940,14 +986,14 @@ function FillQ({ item, onAnswer, testMode = false }) {
     const targetArt = leadingArticle(target);
     const articleOk = !w.article || (item.type === "context" ? articleValue.toLowerCase() === String(w.article).toLowerCase() : (!targetArt || leadingArticle(value) === targetArt));
     const ok = result === "exact" || result === "near" || result === "hinted";
-    onAnswer(ok, result === "exact" ? 1 : 0, { typed: true, exact: result === "exact" && !item.helpUsed, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? (w.meaning?.greek || []).join(" · ") : w.exercise?.sentence, answer: value, hintUsed: hint || !!item.helpUsed, articleCorrect: articleOk, responseTime: now() - questionStart.current, newContext: !!item.newContext });
+    onAnswer(ok, result === "exact" ? 1 : 0, { typed: true, exact: result === "exact" && !item.helpUsed, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? wordPrimaryMeanings(w, lang).join(" · ") : w.exercise?.sentence, answer: value, hintUsed: hint || !!item.helpUsed, articleCorrect: articleOk, responseTime: now() - questionStart.current, newContext: !!item.newContext });
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
       <div className="ww-tag-card ww-pop" style={{ width: "100%", maxWidth: 340, padding: "24px 20px", textAlign: "center" }}>
         <InfoButton word={w} onHelp={() => { item.helpUsed = true; }} />
-        <Pill color="#C1543C" bg="rgba(193,84,60,0.15)">{w.cefr ? w.cefr + " · " : ""}{item.type === "context" ? "Νέο συμφραζόμενο" : "Lückentext"}</Pill>
+        <Pill color="#C1543C" bg="rgba(193,84,60,0.15)">{w.cefr ? w.cefr + " · " : ""}{item.type === "context" ? t("Νέο συμφραζόμενο", "New context") : "Lückentext"}</Pill>
         <div style={{ fontSize: 17, marginTop: 14, lineHeight: 1.6 }}>
           {parts[0]}
           {result ? (
@@ -958,18 +1004,18 @@ function FillQ({ item, onAnswer, testMode = false }) {
           {parts[1]}
         </div>
         <div style={{ fontSize: 11.5, color: "#A79F8E", marginTop: 8 }}>
-          ({(w.meaning && w.meaning.greek ? w.meaning.greek : []).join(", ")})
+          ({meaningHint})
         </div>
       </div>
-      {item.type === "context" && w.article && <select aria-label="Άρθρο" value={articleValue} onChange={e => setArticleValue(e.target.value)} disabled={!!result} className="border border-input bg-background text-foreground rounded-md p-2"><option value="">Άρθρο</option><option>der</option><option>die</option><option>das</option></select>}
-      {!result && !testMode && <HintBar show={hint} text={makeHint(target)} onShow={() => setHint(true)} />}
+      {item.type === "context" && w.article && <select aria-label={t("Άρθρο", "Article")} value={articleValue} onChange={e => setArticleValue(e.target.value)} disabled={!!result} className="border border-input bg-background text-foreground rounded-md p-2"><option value="">{t("Άρθρο", "Article")}</option><option>der</option><option>die</option><option>das</option></select>}
+      {!result && !testMode && <HintBar show={hint} text={makeHint(target, lang)} onShow={() => setHint(true)} />}
       <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 340 }}>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           disabled={!!result}
-          placeholder="Antwort eingeben..."
+          placeholder={t("Antwort eingeben...", "Type your answer...")}
           autoCapitalize="off"
           autoCorrect="off"
           style={{
@@ -987,7 +1033,7 @@ function FillQ({ item, onAnswer, testMode = false }) {
       {result && <TypedFeedback result={result} answer={target} detail={detail} word={w} />}
       {result && (
         <button ref={continueRef} onClick={finish} style={{ width: "100%", maxWidth: 340, padding: "14px 0", borderRadius: 12, background: "#211F1C", border: "none", color: "#F5F0E6", fontWeight: 700, fontSize: 14 }}>
-          Συνέχεια
+          {t("Συνέχεια", "Continue")}
         </button>
       )}
     </div>
@@ -995,6 +1041,7 @@ function FillQ({ item, onAnswer, testMode = false }) {
 }
 
 function RecallQ({ item, onAnswer, allWords, testMode }) {
+  const { lang, t } = useAppLang();
   const w = item.word;
   const [value, setValue] = useState("");
   const questionStart = useRef(now());
@@ -1003,6 +1050,7 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
   const [synonymFirst, setSynonymFirst] = useState(false);
   const [detail, setDetail] = useState(null);
   const continueRef = useRef(null);
+  const promptText = wordPrimaryMeanings(w, lang).join(" · ");
 
   useEffect(() => {
     if (result) continueRef.current?.focus();
@@ -1023,35 +1071,37 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
     else setResult("wrong");
   }
   function finish() {
-    if (result === "synonym") { onAnswer(false, 0, { typed: true, exact: false, status: "synonym", reason: "synonym", neutral: true, mode: "recall", prompt: (w.meaning?.greek || []).join(" · "), answer: value, responseTime: now() - questionStart.current }); return; }
+    if (result === "synonym") { onAnswer(false, 0, { typed: true, exact: false, status: "synonym", reason: "synonym", neutral: true, mode: "recall", prompt: promptText, answer: value, responseTime: now() - questionStart.current }); return; }
     const ok = result === "exact" || result === "near" || result === "hinted";
     const exactOk = result === "exact" && !hint && !item.helpUsed;
-    onAnswer(ok, exactOk ? 1 : 0, { typed: true, exact: exactOk, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? (w.meaning?.greek || []).join(" · ") : w.exercise?.sentence, answer: value, hintUsed: hint || !!item.helpUsed, articleCorrect: !w.article || leadingArticle(value) === String(w.article).toLowerCase(), responseTime: now() - questionStart.current, newContext: !!item.newContext });
+    onAnswer(ok, exactOk ? 1 : 0, { typed: true, exact: exactOk, status: result, reason: detail?.reason, mode: item.type === "context" ? "context" : item.type, prompt: item.type === "recall" ? promptText : w.exercise?.sentence, answer: value, hintUsed: hint || !!item.helpUsed, articleCorrect: !w.article || leadingArticle(value) === String(w.article).toLowerCase(), responseTime: now() - questionStart.current, newContext: !!item.newContext });
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
       <div className="ww-tag-card ww-pop" style={{ width: "100%", maxWidth: 340, padding: "24px 20px", textAlign: "center" }}>
         <InfoButton word={w} onHelp={() => { item.helpUsed = true; }} />
-        <Pill color="#8B7BC7" bg="rgba(139,123,199,0.15)">{testMode ? "Τεστ" : "Ενεργητική ανάκληση"} · {w.cefr ? w.cefr + " · " : ""}{typeLabel(w.type)}</Pill>
+        <Pill color="#8B7BC7" bg="rgba(139,123,199,0.15)">{testMode ? t("Τεστ", "Test") : t("Ενεργητική ανάκληση", "Active recall")} · {w.cefr ? w.cefr + " · " : ""}{typeLabel(w.type)}</Pill>
         <div className="ww-display" style={{ fontSize: 22, fontWeight: 600, marginTop: 14 }}>
-          {(w.meaning && w.meaning.greek ? w.meaning.greek : []).join(" · ")}
+          {promptText}
         </div>
-        <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 8 }}>Γράψε τη γερμανική λέξη (με άρθρο, αν είναι ουσιαστικό)</div>
+        <div style={{ fontSize: 12, color: "#A79F8E", marginTop: 8 }}>
+          {t("Γράψε τη γερμανική λέξη (με άρθρο, αν είναι ουσιαστικό)", "Type the German word (with article if it's a noun)")}
+        </div>
       </div>
       {synonymFirst && !result && (
         <div className="ww-pop" style={{ fontSize: 13.5, color: "#B07A2A", textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-          ✓ Δεκτό συνώνυμο! Ψάχνουμε όμως άλλη λέξη — δοκίμασε ξανά (χωρίς ποινή).
+          {t("✓ Δεκτό συνώνυμο! Ψάχνουμε όμως άλλη λέξη — δοκίμασε ξανά (χωρίς ποινή).", "✓ Valid synonym! We're looking for a different word — try again (no penalty).")}
         </div>
       )}
-      {!result && !testMode && <HintBar show={hint} text={makeHint(w.word)} onShow={() => setHint(true)} />}
+      {!result && !testMode && <HintBar show={hint} text={makeHint(w.word, lang)} onShow={() => setHint(true)} />}
       <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 340 }}>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           disabled={!!result}
-          placeholder="z. B. der Tisch"
+          placeholder={t("z. B. der Tisch", "e.g. der Tisch")}
           autoCapitalize="off"
           autoCorrect="off"
           style={{
@@ -1069,7 +1119,7 @@ function RecallQ({ item, onAnswer, allWords, testMode }) {
       {result && <TypedFeedback result={result} answer={w.word} detail={detail} word={w} />}
       {result && (
         <button ref={continueRef} onClick={finish} style={{ width: "100%", maxWidth: 340, padding: "14px 0", borderRadius: 12, background: "#211F1C", border: "none", color: "#F5F0E6", fontWeight: 700, fontSize: 14 }}>
-          Συνέχεια
+          {t("Συνέχεια", "Continue")}
         </button>
       )}
     </div>
@@ -1091,6 +1141,7 @@ function pickIntensiveType(word) {
 
 function IntensiveSession({ initialWords, onUpdateWords, onFinish, onExit, distractorPool }) {
   const ctx = useContext(AppCtx);
+  const { t } = useAppLang();
   const [liveWords, setLiveWords] = useState(() => initialWords.map((w) => ({ ...w })));
   const [currentItem, setCurrentItem] = useState(null);
   const [round, setRound] = useState(0);
@@ -1120,13 +1171,17 @@ function IntensiveSession({ initialWords, onUpdateWords, onFinish, onExit, distr
         <div style={{ width: 88, height: 88, borderRadius: "50%", border: "4px solid #6FA96B", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <span className="ww-display" style={{ fontSize: 30, fontWeight: 700 }}>✓</span>
         </div>
-        <div className="ww-display" style={{ fontSize: 22, fontWeight: 600 }}>Η σημερινή εξάσκηση ολοκληρώθηκε!</div>
-        <div style={{ fontSize: 13.5, color: "#8B8680" }}>{liveWords.length} λέξεις εξασκήθηκαν· η κατάκτηση κρίνεται χωριστά.</div>
+        <div className="ww-display" style={{ fontSize: 22, fontWeight: 600 }}>
+          {t("Η σημερινή εξάσκηση ολοκληρώθηκε!", "Today's practice is complete!")}
+        </div>
+        <div style={{ fontSize: 13.5, color: "#8B8680" }}>
+          {t(`${liveWords.length} λέξεις εξασκήθηκαν· η κατάκτηση κρίνεται χωριστά.`, `${liveWords.length} words practiced; mastery is verified separately.`)}
+        </div>
         <button
           onClick={() => { onUpdateWords(liveWords); onFinish({ elapsedMs, masteredCount: liveWords.length, total: liveWords.length }); }}
           style={{ marginTop: 10, padding: "13px 30px", borderRadius: 999, background: "#CB9146", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14 }}
         >
-          Τέλεια!
+          {t("Τέλεια!", "Awesome!")}
         </button>
       </div>
     );
@@ -1152,8 +1207,10 @@ function IntensiveSession({ initialWords, onUpdateWords, onFinish, onExit, distr
   return (
     <div style={{ padding: "6px 18px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
       <div style={{ width: "100%", maxWidth: 340, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>← Έξοδος</button>
-        <span className="ww-mono" style={{ fontSize: 11.5, color: "#8B8680" }}>{masteredCount}/{liveWords.length} σημερινή εξάσκηση 90%+ · {batch.pct}%</span>
+        <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>{t("← Έξοδος", "← Exit")}</button>
+        <span className="ww-mono" style={{ fontSize: 11.5, color: "#8B8680" }}>
+          {masteredCount}/{liveWords.length} {t("σημερινή εξάσκηση 90%+", "today's practice 90%+")} · {batch.pct}%
+        </span>
       </div>
       <div style={{ width: "100%", maxWidth: 340 }}>
         <div style={{ height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden" }}>
@@ -1161,7 +1218,7 @@ function IntensiveSession({ initialWords, onUpdateWords, onFinish, onExit, distr
         </div>
       </div>
       <div style={{ fontSize: 12, color: "#8B8680", textAlign: "center" }}>
-        «{baseCurrentWord.word}» — σήμερα: <strong>{todayStats.attempts}/5</strong> βαθμολογημένες · <strong style={{ color: pct >= 90 ? "#6FA96B" : "#CB9146" }}>{pct}%</strong>
+        {t("«", "“")}{baseCurrentWord.word}{t("» — σήμερα:", "” — today:")} <strong>{todayStats.attempts}/5</strong> {t("βαθμολογημένες", "graded")} · <strong style={{ color: pct >= 90 ? "#6FA96B" : "#CB9146" }}>{pct}%</strong>
       </div>
       {currentItem.type === "flashcard" && <FlashcardQ key={round} item={currentItem} onAnswer={handleAnswer} />}
       {currentItem.type === "mc" && <McQ key={round} item={currentItem} allWords={mcWords} onAnswer={handleAnswer} />}
@@ -1173,6 +1230,7 @@ function IntensiveSession({ initialWords, onUpdateWords, onFinish, onExit, distr
 
 function VocabSession({ vocab, mode, onFinish, onUpdateWords, customWords, size = 10, distractorPool, scopeLabel, onExit }) {
   const ctx = useContext(AppCtx);
+  const { t } = useAppLang();
   const words = useMemo(() => customWords || pickRoundWords(vocab, size, mode), []);
   const questions = useMemo(() => buildQuestions(words, mode), [words, mode]);
   const [idx, setIdx] = useState(0);
@@ -1186,10 +1244,10 @@ function VocabSession({ vocab, mode, onFinish, onUpdateWords, customWords, size 
   if (questions.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: 40, color: "#8B8680" }}>
-        <div>Δεν βρέθηκαν διαθέσιμες λέξεις για αυτή την εξάσκηση.</div>
+        <div>{t("Δεν βρέθηκαν διαθέσιμες λέξεις για αυτή την εξάσκηση.", "No available words found for this practice.")}</div>
         {onExit && (
           <button onClick={onExit} style={{ marginTop: 14, padding: "10px 20px", borderRadius: 999, background: "#ECE4D3", border: "none", color: "#211F1C", fontWeight: 600, fontSize: 13 }}>
-            Επιστροφή
+            {t("Επιστροφή", "Back")}
           </button>
         )}
       </div>
@@ -1228,13 +1286,13 @@ function VocabSession({ vocab, mode, onFinish, onUpdateWords, customWords, size 
       <div style={{ width: "100%", maxWidth: 340 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "#A79F8E", marginBottom: 6, gap: 8 }}>
           {onExit ? (
-            <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>← Έξοδος</button>
+            <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>{t("← Έξοδος", "← Exit")}</button>
           ) : (
             <span className="ww-mono">{idx + 1} / {questions.length}</span>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {scopeLabel && <Pill color="#4FA091" bg="rgba(79,160,145,0.14)">{scopeLabel}</Pill>}
-            <span className="ww-mono">{idx + 1} / {questions.length} · {correctCount} σωστά</span>
+            <span className="ww-mono">{idx + 1} / {questions.length} · {correctCount} {t("σωστά", "correct")}</span>
           </div>
         </div>
         <div style={{ height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden" }}>
@@ -1251,12 +1309,13 @@ function VocabSession({ vocab, mode, onFinish, onUpdateWords, customWords, size 
 
 function FavStar({ word, size = 15, style }) {
   const ctx = useContext(AppCtx);
+  const { t } = useAppLang();
   const live = (ctx.vocab || []).find((x) => x.id === word.id) || word;
   const on = !!live.fav;
   return (
     <button
       onClick={(e) => { e.stopPropagation(); ctx.toggleFav(word.id); }}
-      aria-label="Αγαπημένο"
+      aria-label={t("Αγαπημένο", "Favorite")}
       style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...(style || {}) }}
     >
       <Star size={size} fill={on ? "#CB9146" : "none"} color={on ? "#CB9146" : "#A79F8E"} />
@@ -1264,7 +1323,17 @@ function FavStar({ word, size = 15, style }) {
   );
 }
 
-function nearReasonText(reason, detail) {
+function nearReasonText(reason, detail, lang = "el") {
+  if (lang === "en") {
+    if (reason === "umlaut") return "Watch the umlauts (ä / ö / ü).";
+    if (reason === "eszett") return "Watch the ß letter (instead of ss).";
+    if (reason === "typo") return "Minor typo (1 character).";
+    if (reason === "article_missing") return `Remember the article${detail?.article ? ` (${detail.article})` : ""}.`;
+    if (reason === "article_wrong") return detail?.inputArticle && detail?.article ? `You wrote “${detail.inputArticle}” instead of “${detail.article}”.` : "Wrong article.";
+    if (reason === "lemma") return "You typed the base form — this sentence needs the inflected form.";
+    if (reason === "synonym") return "Valid synonym, though we are testing the target word here.";
+    return "";
+  }
   if (reason === "umlaut") return "Προσοχή στα διαλυτικά (ä / ö / ü).";
   if (reason === "eszett") return "Προσοχή στο γράμμα ß (αντί για ss).";
   if (reason === "typo") return "Μικρό τυπογραφικό λάθος (1 γράμμα).";
@@ -1276,11 +1345,12 @@ function nearReasonText(reason, detail) {
 }
 
 function TypedFeedback({ result, answer, note, detail, word }) {
+  const { lang, t } = useAppLang();
   const green = "#3F8C5F", amber = "#B07A2A", red = "#E0584A";
   const reason = detail?.reason;
   const userAnswer = detail?.userAnswer;
   const hinted = !!detail?.hinted;
-  const reasonLine = nearReasonText(reason, detail) || (note === "article" ? "Θυμήσου και το άρθρο." : "");
+  const reasonLine = nearReasonText(reason, detail, lang) || (note === "article" ? t("Θυμήσου και το άρθρο.", "Remember the article.") : "");
 
   const box = (color, bg, border, title, extra) => (
     <div
@@ -1299,10 +1369,12 @@ function TypedFeedback({ result, answer, note, detail, word }) {
   if (result === "exact") {
     return box(
       green, "rgba(111,169,107,0.10)", "#C8E0C5",
-      "✓ Σωστά!",
+      t("✓ Σωστά!", "✓ Correct!"),
       <>
         {detail?.isReflexiveMissing && (
-          <div style={{ fontSize: 12, color: "#4A453D", marginTop: 3 }}>Σημείωση: αυτοπαθές ρήμα (<strong>{word?.word}</strong>).</div>
+          <div style={{ fontSize: 12, color: "#4A453D", marginTop: 3 }}>
+            {t("Σημείωση: αυτοπαθές ρήμα", "Note: reflexive verb")} (<strong>{word?.word}</strong>).
+          </div>
         )}
         {word?.examples?.[0]?.de && word.word !== answer && (
           <div style={{ fontSize: 12, color: "#8B8680", marginTop: 4 }}>„{word.examples[0].de}“</div>
@@ -1311,9 +1383,10 @@ function TypedFeedback({ result, answer, note, detail, word }) {
     );
   }
 
+  const primaryMeanings = wordPrimaryMeanings(word, lang);
   const reinforcement = word && (
     <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#4A453D" }}>
-      {word.meaning?.greek?.length > 0 && <div>{(word.meaning.greek || []).join(" · ")}</div>}
+      {primaryMeanings.length > 0 && <div>{primaryMeanings.join(" · ")}</div>}
       {word.memoryHook && <div style={{ color: "#8B6928", marginTop: 2 }}>💡 {word.memoryHook}</div>}
     </div>
   );
@@ -1321,11 +1394,11 @@ function TypedFeedback({ result, answer, note, detail, word }) {
   if (result === "near") {
     return box(
       amber, "rgba(203,145,70,0.11)", "#E8D6B0",
-      `Σχεδόν σωστά!${hinted ? " (με υπόδειξη)" : ""}`,
+      t(`Σχεδόν σωστά!${hinted ? " (με υπόδειξη)" : ""}`, `Almost right!${hinted ? " (with hint)" : ""}`),
       <>
         {reasonLine && <div style={{ fontSize: 12.5, color: "#8B6928", marginTop: 2 }}>{reasonLine}</div>}
-        {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 4 }}>Έγραψες: «{userAnswer}»</div>}
-        <div style={{ fontSize: 13.5, marginTop: 2 }}>Σωστή γραφή: <strong style={{ fontSize: 16 }}>{answer}</strong></div>
+        {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 4 }}>{t(`Έγραψες: «${userAnswer}»`, `You wrote: “${userAnswer}”`)}</div>}
+        <div style={{ fontSize: 13.5, marginTop: 2 }}>{t("Σωστή γραφή:", "Correct spelling:")} <strong style={{ fontSize: 16 }}>{answer}</strong></div>
         {reinforcement}
       </>
     );
@@ -1333,9 +1406,9 @@ function TypedFeedback({ result, answer, note, detail, word }) {
   if (result === "hinted") {
     return box(
       amber, "rgba(203,145,70,0.11)", "#E8D6B0",
-      "Σωστά, αλλά με υπόδειξη — δεν ανεβάζει τη γνώση",
+      t("Σωστά, αλλά με υπόδειξη — δεν ανεβάζει τη γνώση", "Correct with hint — does not count toward mastery"),
       <>
-        <div style={{ fontSize: 13.5, marginTop: 3 }}>Απάντηση: <strong style={{ fontSize: 16 }}>{answer}</strong></div>
+        <div style={{ fontSize: 13.5, marginTop: 3 }}>{t("Απάντηση:", "Answer:")} <strong style={{ fontSize: 16 }}>{answer}</strong></div>
         {reinforcement}
       </>
     );
@@ -1343,10 +1416,10 @@ function TypedFeedback({ result, answer, note, detail, word }) {
   if (result === "article") {
     return box(
       red, "rgba(224,88,74,0.09)", "#F0C9C2",
-      "Σωστή λέξη, λάθος άρθρο",
+      t("Σωστή λέξη, λάθος άρθρο", "Right word, wrong article"),
       <>
         {reasonLine && <div style={{ fontSize: 12.5, color: "#B84336", marginTop: 2 }}>{reasonLine}</div>}
-        <div style={{ fontSize: 13.5, marginTop: 4 }}>Σωστό: <strong style={{ fontSize: 16 }}>{answer}</strong></div>
+        <div style={{ fontSize: 13.5, marginTop: 4 }}>{t("Σωστό:", "Correct:")} <strong style={{ fontSize: 16 }}>{answer}</strong></div>
         {reinforcement}
       </>
     );
@@ -1354,21 +1427,21 @@ function TypedFeedback({ result, answer, note, detail, word }) {
   if (result === "synonym") {
     return box(
       amber, "rgba(203,145,70,0.11)", "#E8D6B0",
-      "Συνώνυμο — μετράει μόνο η λέξη-στόχος",
+      t("Συνώνυμο — μετράει μόνο η λέξη-στόχος", "Synonym — only the target word counts"),
       <>
-        {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 3 }}>Έγραψες: «{userAnswer}»</div>}
-        <div style={{ fontSize: 13.5, marginTop: 2 }}>Στόχος: <strong style={{ fontSize: 16 }}>{answer}</strong></div>
+        {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 3 }}>{t(`Έγραψες: «${userAnswer}»`, `You wrote: “${userAnswer}”`)}</div>}
+        <div style={{ fontSize: 13.5, marginTop: 2 }}>{t("Στόχος:", "Target:")} <strong style={{ fontSize: 16 }}>{answer}</strong></div>
         {reinforcement}
       </>
     );
   }
   return box(
     red, "rgba(224,88,74,0.09)", "#F0C9C2",
-    "Λάθος απάντηση",
+    t("Λάθος απάντηση", "Incorrect answer"),
     <>
       {reasonLine && <div style={{ fontSize: 12.5, color: "#B84336", marginTop: 2 }}>{reasonLine}</div>}
-      {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 3 }}>Έγραψες: «{userAnswer}»</div>}
-      <div style={{ fontSize: 13.5, marginTop: 2 }}>Σωστό: <strong style={{ fontSize: 16 }}>{answer}</strong></div>
+      {userAnswer && <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 3 }}>{t(`Έγραψες: «${userAnswer}»`, `You wrote: “${userAnswer}”`)}</div>}
+      <div style={{ fontSize: 13.5, marginTop: 2 }}>{t("Σωστό:", "Correct:")} <strong style={{ fontSize: 16 }}>{answer}</strong></div>
       {reinforcement}
     </>
   );
@@ -1382,26 +1455,28 @@ function typedBorder(result) {
 }
 
 function HintBar({ show, text, onShow }) {
+  const { t } = useAppLang();
   if (show) {
     return <div className="ww-mono" style={{ fontSize: 14, color: "#8B7BC7", letterSpacing: 1, textAlign: "center" }}>💡 {text}</div>;
   }
   return (
     <button onClick={onShow} style={{ background: "none", border: "1px dashed #D9CFEF", color: "#8B7BC7", borderRadius: 999, padding: "6px 14px", fontSize: 12.5 }}>
-      💡 Υπόδειξη (πρώτο γράμμα)
+      {t("💡 Υπόδειξη (πρώτο γράμμα)", "💡 Hint (first letter)")}
     </button>
   );
 }
 
 const TEST_GAME_LABELS = {
-  flashcard: "Κάρτα",
-  mc: "Πολλαπλή επιλογή",
-  fill: "Κενό",
-  context: "Συμφραζόμενο",
-  recall: "Γράψιμο",
+  flashcard: { el: "Κάρτα", en: "Flashcard" },
+  mc: { el: "Πολλαπλή επιλογή", en: "Multiple Choice" },
+  fill: { el: "Κενό", en: "Fill Blank" },
+  context: { el: "Συμφραζόμενο", en: "Context" },
+  recall: { el: "Γράψιμο", en: "Typed Recall" },
 };
 
 function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", distractorPool }) {
   const ctx = useContext(AppCtx);
+  const { lang, t } = useAppLang();
   const questions = useMemo(() => buildAllGamesQuestions(words, { shuffleOrder: true }), [words]);
   const [idx, setIdx] = useState(0);
   const [tally, setTally] = useState({ exact: 0, near: 0, synonym: 0, wrong: 0, exposures: 0 });
@@ -1411,6 +1486,7 @@ function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", di
   const [summary, setSummary] = useState(null);
   const startRef = useRef(now());
   const sessionId = useRef(crypto.randomUUID());
+  const gameLabel = (g) => (TEST_GAME_LABELS[g] ? (lang === "en" ? TEST_GAME_LABELS[g].en : TEST_GAME_LABELS[g].el) : g);
 
   function handle(correct, boost, info) {
     const inf = info || {};
@@ -1480,28 +1556,28 @@ function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", di
           <span className="ww-display" style={{ fontSize: 28, fontWeight: 700 }}>{pct}%</span>
         </div>
         <div className="ww-display" style={{ fontSize: 20, fontWeight: 600 }}>
-          {scope === "b2" ? "Αποτέλεσμα τεστ B2" : "Αποτέλεσμα τεστ"}
+          {scope === "b2" ? t("Αποτέλεσμα τεστ B2", "B2 Test Result") : t("Αποτέλεσμα τεστ", "Test Result")}
         </div>
         <div style={{ fontSize: 13.5, color: "#4A453D", textAlign: "center", lineHeight: 1.7 }}>
-          Ακριβή: <strong>{summary.exact}</strong> · Σχεδόν σωστά: <strong>{summary.near}</strong> · Λάθος: <strong>{summary.wrong}</strong>
-          {summary.scored > 0 ? <> (από {summary.scored} βαθμολογημένες)</> : null}
+          {t("Ακριβή:", "Exact:")} <strong>{summary.exact}</strong> · {t("Σχεδόν σωστά:", "Almost right:")} <strong>{summary.near}</strong> · {t("Λάθος:", "Wrong:")} <strong>{summary.wrong}</strong>
+          {summary.scored > 0 ? <> ({t(`από ${summary.scored} βαθμολογημένες`, `of ${summary.scored} graded`)})</> : null}
           <br />
-          {summary.exposures > 0 && <>Κάρτες ανασκόπησης: <strong>{summary.exposures}</strong></>}
+          {summary.exposures > 0 && <>{t("Κάρτες ανασκόπησης:", "Review flashcards:")} <strong>{summary.exposures}</strong></>}
           {summary.exposures > 0 && summary.synonym > 0 && " · "}
-          {summary.synonym > 0 && <>Συνώνυμα: <strong>{summary.synonym}</strong></>}
+          {summary.synonym > 0 && <>{t("Συνώνυμα:", "Synonyms:")} <strong>{summary.synonym}</strong></>}
         </div>
         {summary.missed.length > 0 && (
           <div className="ww-tag-card" style={{ width: "100%", maxWidth: 340, padding: "14px 16px" }}>
-            <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Για επανάληψη</div>
+            <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{t("Για επανάληψη", "To review")}</div>
             {summary.missed.map((m, i) => (
               <div key={`${m.word.id || m.word.word}-${i}`} style={{ fontSize: 14, padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                 <div>
-                  <strong>{m.word.word}</strong> <span style={{ color: "#8B8680" }}>— {((m.word.meaning && m.word.meaning.greek) || [])[0]}</span>
+                  <strong>{m.word.word}</strong> <span style={{ color: "#8B8680" }}>— {wordPrimaryMeanings(m.word, lang)[0]}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: "#E0584A", marginTop: 2 }}>
-                  {m.status === "article" ? "Λάθος άρθρο" : m.status === "flashcard" ? "Κάρτα · Ξανά σύντομα" : "Λάθος"}
-                  {m.game ? ` (${TEST_GAME_LABELS[m.game] || m.game})` : ""}
-                  {m.status !== "flashcard" && m.answer ? ` — έγραψες: «${m.answer}»` : ""}
+                  {m.status === "article" ? t("Λάθος άρθρο", "Wrong article") : m.status === "flashcard" ? t("Κάρτα · Ξανά σύντομα", "Flashcard · Again soon") : t("Λάθος", "Wrong")}
+                  {m.game ? ` (${gameLabel(m.game)})` : ""}
+                  {m.status !== "flashcard" && m.answer ? t(` — έγραψες: «${m.answer}»`, ` — you wrote: “${m.answer}”`) : ""}
                 </div>
               </div>
             ))}
@@ -1509,11 +1585,14 @@ function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", di
         )}
         {summary.synonymWords.length > 0 && (
           <div style={{ fontSize: 12.5, color: "#8B8680", textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-            Έδωσες συνώνυμο για: {summary.synonymWords.map((m) => m.word).join(", ")} — δεν μετρήθηκαν ως σωστά, ούτε ως λάθη.
+            {t(
+              `Έδωσες συνώνυμο για: ${summary.synonymWords.map((m) => m.word).join(", ")} — δεν μετρήθηκαν ως σωστά, ούτε ως λάθη.`,
+              `You gave a synonym for: ${summary.synonymWords.map((m) => m.word).join(", ")} — counted as neither right nor wrong.`,
+            )}
           </div>
         )}
         <button onClick={() => onFinish(summary)} style={{ marginTop: 6, padding: "13px 30px", borderRadius: 999, background: "#CB9146", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14 }}>
-          Τέλος
+          {t("Τέλος", "Done")}
         </button>
       </div>
     );
@@ -1522,7 +1601,7 @@ function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", di
   if (!questions.length) {
     return (
       <div style={{ textAlign: "center", padding: 40, color: "#8B8680" }}>
-        Δεν υπάρχουν διαθέσιμες λέξεις για το τεστ.
+        {t("Δεν υπάρχουν διαθέσιμες λέξεις για το τεστ.", "No available words for this test.")}
       </div>
     );
   }
@@ -1534,10 +1613,10 @@ function TestSession({ words, onFinish, onUpdateWords, onExit, scope = "all", di
     <div style={{ padding: "6px 18px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
       <div style={{ width: "100%", maxWidth: 340 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "#A79F8E", marginBottom: 6, gap: 6 }}>
-          <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>← Έξοδος</button>
+          <button onClick={onExit} style={{ background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 0 }}>{t("← Έξοδος", "← Exit")}</button>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {scope === "b2" && <Pill color="#4FA091" bg="rgba(79,160,145,0.14)">Μόνο B2</Pill>}
-            <span className="ww-mono">{TEST_GAME_LABELS[item.type] || item.type} · {idx + 1} / {questions.length}</span>
+            {scope === "b2" && <Pill color="#4FA091" bg="rgba(79,160,145,0.14)">{t("Μόνο B2", "B2 Only")}</Pill>}
+            <span className="ww-mono">{gameLabel(item.type)} · {idx + 1} / {questions.length}</span>
           </div>
         </div>
         <div style={{ height: 5, background: "#ECE4D3", borderRadius: 999, overflow: "hidden" }}>
@@ -1595,8 +1674,17 @@ async function storeSet(key, value) {
 }
 
 function RoundResult({ result, onDone, onRetryMissed }) {
+  const { lang, t } = useAppLang();
   const pct = result.total ? Math.round((result.correct / result.total) * 100) : 0;
-  const msg = !result.total ? "Κάρτες εξασκήθηκαν — χωρίς βαθμολογία" : pct >= 90 ? "Ausgezeichnet! 🎉" : pct >= 70 ? "Stark gemacht! 💪" : pct >= 40 ? "Gut dabei — weiter so!" : "Übung macht die Meisterin!";
+  const msg = !result.total
+    ? t("Κάρτες εξασκήθηκαν — χωρίς βαθμολογία", "Flashcards reviewed — ungraded")
+    : pct >= 90
+      ? t("Ausgezeichnet! 🎉", "Excellent! 🎉")
+      : pct >= 70
+        ? t("Stark gemacht! 💪", "Great job! 💪")
+        : pct >= 40
+          ? t("Gut dabei — weiter so!", "Good progress — keep going!")
+          : t("Übung macht die Meisterin!", "Practice makes perfect!");
   const outcomes = result.outcomes || [];
   const exactCount = outcomes.filter((o) => o.status === "exact").length;
   const nearCount = outcomes.filter((o) => o.status === "near" || o.status === "hinted").length;
@@ -1611,21 +1699,32 @@ function RoundResult({ result, onDone, onRetryMissed }) {
       </div>
       <div className="ww-display" style={{ fontSize: 20, fontWeight: 600 }}>{msg}</div>
       <div style={{ fontSize: 13, color: "#8B8680" }}>
-        {result.total > 0 ? `${result.correct} von ${result.total} richtig` : `${result.exposures || 0} κάρτες ανασκόπησης`}
-        {result.total > 0 && result.exposures > 0 ? ` · +${result.exposures} κάρτες` : ""}
+        {result.total > 0
+          ? t(`${result.correct} von ${result.total} richtig`, `${result.correct} of ${result.total} correct`)
+          : t(`${result.exposures || 0} κάρτες ανασκόπησης`, `${result.exposures || 0} flashcards reviewed`)}
+        {result.total > 0 && result.exposures > 0 ? t(` · +${result.exposures} κάρτες`, ` · +${result.exposures} cards`) : ""}
       </div>
       {outcomes.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-          <Pill color="#3F8C5F" bg="rgba(111,169,107,0.14)">✓ {exactCount} ακριβή</Pill>
-          {nearCount > 0 && <Pill color="#B07A2A" bg="rgba(203,145,70,0.14)">~ {nearCount} σχεδόν</Pill>}
-          {wrongItems.length > 0 && <Pill color="#E0584A" bg="rgba(224,88,74,0.14)">✕ {wrongItems.length} λάθη</Pill>}
+          <Pill color="#3F8C5F" bg="rgba(111,169,107,0.14)">✓ {exactCount} {t("ακριβή", "exact")}</Pill>
+          {nearCount > 0 && <Pill color="#B07A2A" bg="rgba(203,145,70,0.14)">~ {nearCount} {t("σχεδόν", "almost")}</Pill>}
+          {wrongItems.length > 0 && <Pill color="#E0584A" bg="rgba(224,88,74,0.14)">✕ {wrongItems.length} {t("λάθη", "wrong")}</Pill>}
         </div>
       )}
       {reviewItems.length > 0 && (
         <div className="ww-tag-card" style={{ width: "100%", maxWidth: 340, padding: "14px 16px", textAlign: "left" }}>
-          <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Για προσοχή / επανάληψη</div>
+          <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            {t("Για προσοχή / επανάληψη", "Needs attention / review")}
+          </div>
           {reviewItems.map((o, i) => {
-            const label = o.status === "article" ? "λάθος άρθρο" : o.status === "near" ? (nearReasonText(o.reason) || "ορθογραφία") : o.status === "hinted" ? "με υπόδειξη" : "λάθος";
+            const label =
+              o.status === "article"
+                ? t("λάθος άρθρο", "wrong article")
+                : o.status === "near"
+                  ? nearReasonText(o.reason, null, lang) || t("ορθογραφία", "spelling")
+                  : o.status === "hinted"
+                    ? t("με υπόδειξη", "with hint")
+                    : t("λάθος", "wrong");
             const color = o.status === "wrong" || o.status === "article" ? "#E0584A" : "#B07A2A";
             return (
               <div key={`${o.word.id}-${i}`} style={{ fontSize: 13.5, padding: "6px 0", borderBottom: i < reviewItems.length - 1 ? "1px solid #ECE4D3" : "none" }}>
@@ -1633,7 +1732,7 @@ function RoundResult({ result, onDone, onRetryMissed }) {
                   <strong>{o.word.word}</strong>
                   <span style={{ fontSize: 11, color, fontWeight: 600 }}>{label}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#8B8680" }}>{((o.word.meaning && o.word.meaning.greek) || []).join(", ")}</div>
+                <div style={{ fontSize: 12, color: "#8B8680" }}>{wordPrimaryMeanings(o.word, lang).join(", ")}</div>
               </div>
             );
           })}
@@ -1644,20 +1743,21 @@ function RoundResult({ result, onDone, onRetryMissed }) {
           onClick={() => onRetryMissed(retryWords)}
           style={{ width: "100%", maxWidth: 340, padding: "13px 20px", borderRadius: 999, background: "rgba(224,88,74,0.12)", border: "1px solid #F0C9C2", color: "#E0584A", fontWeight: 700, fontSize: 13.5 }}
         >
-          Επανάληψη λαθών ({retryWords.length})
+          {t(`Επανάληψη λαθών (${retryWords.length})`, `Retry mistakes (${retryWords.length})`)}
         </button>
       )}
       <button
         onClick={onDone}
         style={{ marginTop: 2, padding: "13px 34px", borderRadius: 999, background: "#CB9146", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14 }}
       >
-        Weiter
+        {t("Weiter", "Continue")}
       </button>
     </div>
   );
 }
 
 function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
+  const { t } = useAppLang();
   const dueCount = vocab.filter(isDue).length;
   const b2Count = useMemo(() => vocab.filter(isB2Word).length, [vocab]);
 
@@ -1665,28 +1765,30 @@ function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
     <div style={{ padding: "18px 20px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#A79F8E" }}>
         <span style={{ fontSize: 14 }}>🇩🇪</span>
-        <span className="ww-mono" style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Mein Wortschatz</span>
+        <span className="ww-mono" style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>
+          {t("Mein Wortschatz", "My Vocabulary")}
+        </span>
       </div>
       <div className="ww-display" style={{ fontSize: 40, fontWeight: 700, marginTop: 4, marginBottom: 22 }}>WortWerk</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         <div className="ww-tag-card" style={{ padding: "18px 16px" }}>
           <div className="ww-display" style={{ fontSize: 30, fontWeight: 700 }}>{vocab.length}</div>
-          <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 2 }}>Wörter gelernt</div>
+          <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 2 }}>{t("Wörter gelernt", "Words in deck")}</div>
         </div>
         <div className="ww-tag-card" style={{ padding: "18px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <Flame size={22} color="#C1543C" />
             <span className="ww-display" style={{ fontSize: 30, fontWeight: 700 }}>{meta.streak || 0}</span>
           </div>
-          <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 2 }}>Tage Lernserie</div>
+          <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 2 }}>{t("Tage Lernserie", "Day streak")}</div>
         </div>
       </div>
 
       <div className="ww-hero-card" style={{ padding: "26px 22px", marginBottom: 24, color: "#F5F0E6" }}>
-        <div style={{ fontSize: 13, color: "rgba(245,240,230,0.62)" }}>Heute lernen</div>
+        <div style={{ fontSize: 13, color: "rgba(245,240,230,0.62)" }}>{t("Heute lernen", "Study today")}</div>
         <div className="ww-display" style={{ fontSize: 34, fontWeight: 700, marginTop: 6, marginBottom: 22 }}>
-          {dueCount > 0 ? dueCount : vocab.length} Wörter
+          {dueCount > 0 ? dueCount : vocab.length} {t("Wörter", "Words")}
         </div>
         <button
           onClick={onStartDaily}
@@ -1696,7 +1798,7 @@ function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}
         >
-          Jetzt lernen <ChevronRight size={16} />
+          {t("Jetzt lernen", "Start learning")} <ChevronRight size={16} />
         </button>
         {b2Count > 0 && onOpenB2Practice && (
           <button
@@ -1708,7 +1810,7 @@ function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             }}
           >
-            Εξάσκηση μόνο B2 ({b2Count} λέξεις) <ChevronRight size={15} />
+            {t(`Εξάσκηση μόνο B2 (${b2Count} λέξεις)`, `B2-only practice (${b2Count} words)`)} <ChevronRight size={15} />
           </button>
         )}
       </div>
@@ -1724,6 +1826,7 @@ function HomeScreen({ vocab, meta, goTo, onStartDaily, onOpenB2Practice }) {
 
 function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onAutoStartConsumed, practiceScope = "all", setPracticeScope, onOpenB2Stats }) {
   const ctx = useContext(AppCtx);
+  const { lang, t } = useAppLang();
   const [mode, setMode] = useState(null);
   const [customWords, setCustomWords] = useState(null);
   const [result, setResult] = useState(null);
@@ -1735,9 +1838,9 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
   const isB2Only = practiceScope === "b2";
   const scopedVocab = useMemo(() => filterVocabByPracticeScope(vocab, practiceScope), [vocab, practiceScope]);
   const distractorPool = useMemo(() => {
-    const withGreek = scopedVocab.filter((w) => w.meaning?.greek?.[0]);
-    return withGreek.length >= 4 ? scopedVocab : vocab;
-  }, [scopedVocab, vocab]);
+    const withMeaning = scopedVocab.filter((w) => wordPrimaryMeanings(w, lang).length > 0);
+    return withMeaning.length >= 4 ? scopedVocab : vocab;
+  }, [scopedVocab, vocab, lang]);
   const daily = useMemo(() => getDailyPracticeWords(scopedVocab), [scopedVocab]);
   const todaysWords = useMemo(() => scopedVocab.filter((w) => w.dateAdded === todayStr), [scopedVocab, todayStr]);
   const todaysRemaining = todaysWords.filter((w) => !isMasteredToday(w));
@@ -1753,7 +1856,11 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
 
   function startDaily() {
     if (!daily.all.length) {
-      setNote(isB2Only ? "Δεν υπάρχουν B2 λέξεις που οφείλονται σήμερα." : "Καμία λέξη δεν οφείλεται σήμερα.");
+      setNote(
+        isB2Only
+          ? t("Δεν υπάρχουν B2 λέξεις που οφείλονται σήμερα.", "No B2 words are due today.")
+          : t("Καμία λέξη δεν οφείλεται σήμερα.", "No words are due today."),
+      );
       return;
     }
     setNote("");
@@ -1770,7 +1877,11 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
 
   function startFav() {
     if (!favs.length) {
-      setNote(isB2Only ? "Δεν έχεις αγαπημένες B2 λέξεις ακόμα — πάτα το ★ σε μια λέξη B2." : "Δεν έχεις αγαπημένα ακόμα — πάτα το ★ σε μια λέξη.");
+      setNote(
+        isB2Only
+          ? t("Δεν έχεις αγαπημένες B2 λέξεις ακόμα — πάτα το ★ σε μια λέξη B2.", "No favorite B2 words yet — tap ★ on a B2 word.")
+          : t("Δεν έχεις αγαπημένα ακόμα — πάτα το ★ σε μια λέξη.", "No favorites yet — tap ★ on any word."),
+      );
       return;
     }
     setNote("");
@@ -1785,7 +1896,11 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
   }
   function startTest() {
     if (testPool.length < 5) {
-      setNote(isB2Only ? "Χρειάζεσαι τουλάχιστον 5 ενεργές λέξεις επιπέδου B2 για τεστ." : "Χρειάζεσαι τουλάχιστον 5 ενεργές λέξεις για τεστ.");
+      setNote(
+        isB2Only
+          ? t("Χρειάζεσαι τουλάχιστον 5 ενεργές λέξεις επιπέδου B2 για τεστ.", "You need at least 5 active B2 words to run a test.")
+          : t("Χρειάζεσαι τουλάχιστον 5 ενεργές λέξεις για τεστ.", "You need at least 5 active words to run a test."),
+      );
       return;
     }
     setNote("");
@@ -1850,7 +1965,7 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
       <VocabSession
         vocab={scopedVocab}
         distractorPool={distractorPool}
-        scopeLabel={isB2Only ? "Μόνο B2" : null}
+        scopeLabel={isB2Only ? t("Μόνο B2", "B2 Only") : null}
         mode={mode}
         customWords={customWords}
         onFinish={registerVocabSession}
@@ -1870,13 +1985,13 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
   }
 
   const modes = [
-    { id: "mix", label: "Mix", desc: "Όλα τα 5 παιχνίδια", icon: Shuffle, color: "#CB9146" },
-    { id: "flashcard", label: "Karteikarten", desc: "Umdrehen & bewerten", icon: Layers, color: "#4FA091" },
-    { id: "mc", label: "Multiple Choice", desc: "4 Antworten", icon: ListChecks, color: "#C1543C" },
-    { id: "fill", label: "Lückentext", desc: "Wort eintippen", icon: PenLine, color: "#8B7BC7" },
-    { id: "context", label: "Νέο συμφραζόμενο", desc: "Γραφή σε πρόταση", icon: PenLine, color: "#4FA091" },
-    { id: "recall", label: "Γράψιμο", desc: "Ελληνικά → Γερμανικά", icon: PenLine, color: "#5B8DB8" },
-    { id: "fav", label: "Αγαπημένα", desc: `${favs.length} ${isB2Only ? "B2 " : ""}λέξεις`, icon: Star, color: "#CB9146" },
+    { id: "mix", label: "Mix", desc: t("Όλα τα 5 παιχνίδια", "All 5 exercises"), icon: Shuffle, color: "#CB9146" },
+    { id: "flashcard", label: t("Karteikarten", "Flashcards"), desc: t("Umdrehen & bewerten", "Flip & self-rate"), icon: Layers, color: "#4FA091" },
+    { id: "mc", label: "Multiple Choice", desc: t("4 Antworten", "4 choices"), icon: ListChecks, color: "#C1543C" },
+    { id: "fill", label: "Lückentext", desc: t("Wort eintippen", "Type missing word"), icon: PenLine, color: "#8B7BC7" },
+    { id: "context", label: t("Νέο συμφραζόμενο", "New context"), desc: t("Γραφή σε πρόταση", "Type in sentence"), icon: PenLine, color: "#4FA091" },
+    { id: "recall", label: t("Γράψιμο", "Typed Recall"), desc: t("Ελληνικά → Γερμανικά", "English → German"), icon: PenLine, color: "#5B8DB8" },
+    { id: "fav", label: t("Αγαπημένα", "Favorites"), desc: `${favs.length} ${isB2Only ? "B2 " : ""}${t("λέξεις", "words")}`, icon: Star, color: "#CB9146" },
   ];
 
   return (
@@ -1884,13 +1999,13 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
       <div className="ww-tag-card" style={{ padding: "12px 14px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
           <span className="ww-mono" style={{ fontSize: 11, color: "#8B8680", textTransform: "uppercase", letterSpacing: 0.6 }}>
-            Επίπεδο εξάσκησης
+            {t("Επίπεδο εξάσκησης", "Practice scope")}
           </span>
-          {isB2Only && <Pill color="#4FA091" bg="rgba(79,160,145,0.15)">Μόνο B2 ενεργό</Pill>}
+          {isB2Only && <Pill color="#4FA091" bg="rgba(79,160,145,0.15)">{t("Μόνο B2 ενεργό", "B2 only active")}</Pill>}
         </div>
         <div
           role="group"
-          aria-label="Επιλογή επιπέδου εξάσκησης"
+          aria-label={t("Επιλογή επιπέδου εξάσκησης", "Select practice scope")}
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: 4, borderRadius: 12, background: "#F5F0E6" }}
         >
           <button
@@ -1905,7 +2020,7 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             }}
           >
-            <span>Όλα</span>
+            <span>{t("Όλα", "All")}</span>
             <span className="ww-mono" style={{ fontSize: 11, opacity: 0.8 }}>({vocab.length})</span>
           </button>
           <button
@@ -1920,13 +2035,17 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             }}
           >
-            <span>Μόνο B2</span>
+            <span>{t("Μόνο B2", "B2 Only")}</span>
             <span className="ww-mono" style={{ fontSize: 11, opacity: 0.9 }}>({b2Vocab.length})</span>
           </button>
         </div>
         {isB2Only && (
           <div style={{ fontSize: 12, color: "#4A453D", marginTop: 8, lineHeight: 1.45 }}>
-            Ημερήσια εξάσκηση, τεστ και όλα τα παιχνίδια λειτουργούν αποκλειστικά με τις <strong>{b2Vocab.length}</strong> λέξεις επιπέδου <strong>B2</strong>.
+            {t(
+              "Ημερήσια εξάσκηση, τεστ και όλα τα παιχνίδια λειτουργούν αποκλειστικά με τις ",
+              "Daily practice, tests, and all exercises run exclusively with your ",
+            )}
+            <strong>{b2Vocab.length}</strong> {t("λέξεις επιπέδου ", "")}<strong>B2</strong>{t(".", " words.")}
           </div>
         )}
       </div>
@@ -1943,10 +2062,10 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
         <div className="ww-tag-card ww-pop" style={{ padding: "20px", marginBottom: 18, borderLeft: "3px solid #6FA96B" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6FA96B" }}>
             <Sparkles size={16} />
-            <span className="ww-mono" style={{ fontSize: 12 }}>Λέξεις της ημέρας{isB2Only ? " · B2" : ""}</span>
+            <span className="ww-mono" style={{ fontSize: 12 }}>{t("Λέξεις της ημέρας", "Today's words")}{isB2Only ? " · B2" : ""}</span>
           </div>
           <div className="ww-display" style={{ fontSize: 22, fontWeight: 700, marginTop: 8 }}>
-            {todaysMasteredCount}/{todaysWords.length} σημερινή εξάσκηση 90%+
+            {todaysMasteredCount}/{todaysWords.length} {t("σημερινή εξάσκηση 90%+", "today's practice 90%+")}
             {todaysBatch.pct > 0 && todaysRemaining.length > 0 && (
               <span className="ww-mono" style={{ fontSize: 13, fontWeight: 600, color: "#6FA96B", marginLeft: 8 }}>
                 {todaysBatch.pct}%
@@ -1955,8 +2074,14 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
           </div>
           <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 4, lineHeight: 1.5 }}>
             {todaysRemaining.length > 0
-              ? "Εντατική εξάσκηση — αναγνώριση, γραφή, συμφραζόμενο και ανάκληση, σημερινές βαθμολογημένες προσπάθειες· όχι πιστοποίηση κατάκτησης."
-              : "Ο σημερινός στόχος εξάσκησης ολοκληρώθηκε — όχι πιστοποίηση κατάκτησης."}
+              ? t(
+                  "Εντατική εξάσκηση — αναγνώριση, γραφή, συμφραζόμενο και ανάκληση, σημερινές βαθμολογημένες προσπάθειες· όχι πιστοποίηση κατάκτησης.",
+                  "Intensive practice — recognition, typing, context, and recall, today's graded attempts; does not certify mastery.",
+                )
+              : t(
+                  "Ο σημερινός στόχος εξάσκησης ολοκληρώθηκε — όχι πιστοποίηση κατάκτησης.",
+                  "Today's practice target is complete — does not certify mastery.",
+                )}
           </div>
           <div style={{ height: 6, background: "#ECE4D3", borderRadius: 999, overflow: "hidden", marginTop: 12 }}>
             <div style={{ height: "100%", width: `${todaysBatch.pct}%`, background: "#6FA96B", transition: "width 0.3s" }} />
@@ -1966,7 +2091,7 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
               onClick={() => setShowIntensive(true)}
               style={{ marginTop: 16, width: "100%", padding: "14px 0", borderRadius: 999, background: "#6FA96B", border: "none", color: "#14201A", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             >
-              Εντατική εξάσκηση ({todaysRemaining.length}) <ChevronRight size={16} />
+              {t(`Εντατική εξάσκηση (${todaysRemaining.length})`, `Intensive practice (${todaysRemaining.length})`)} <ChevronRight size={16} />
             </button>
           )}
         </div>
@@ -1976,32 +2101,35 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#CB9146" }}>
             <Flame size={16} />
-            <span className="ww-mono" style={{ fontSize: 12 }}>{meta.streak || 0} Tage Serie</span>
+            <span className="ww-mono" style={{ fontSize: 12 }}>{meta.streak || 0} {t("Tage Serie", "day streak")}</span>
           </div>
-          {isB2Only && <Pill color="#A7E3D7" bg="rgba(79,160,145,0.25)">Μόνο B2</Pill>}
+          {isB2Only && <Pill color="#A7E3D7" bg="rgba(79,160,145,0.25)">{t("Μόνο B2", "B2 Only")}</Pill>}
         </div>
         <div className="ww-display" style={{ fontSize: 26, fontWeight: 600, marginTop: 8 }}>
-          Ημερήσια Εξάσκηση{isB2Only ? " · B2" : ""}
+          {t("Ημερήσια Εξάσκηση", "Daily Practice")}{isB2Only ? " · B2" : ""}
         </div>
         <div style={{ fontSize: 13, color: "rgba(245,240,230,0.74)", marginTop: 6, lineHeight: 1.5 }}>
           {daily.due.length > 0
-            ? <>{daily.due.length} {isB2Only ? "B2 " : ""}λέξεις οφείλονται σήμερα (πρόγραμμα 1-3-7-10-15 ημερών)</>
-            : <>Καμία {isB2Only ? "B2 " : ""}λέξη δεν οφείλεται σήμερα</>}
-          {daily.maintenance.length > 0 && <> · +{daily.maintenance.length} για έλεγχο διατήρησης</>}
+            ? <>{daily.due.length} {isB2Only ? "B2 " : ""}{t("λέξεις οφείλονται σήμερα (πρόγραμμα 1-3-7-10-15 ημερών)", "words due today (1-3-7-10-15 day schedule)")}</>
+            : <>{t(`Καμία ${isB2Only ? "B2 " : ""}λέξη δεν οφείλεται σήμερα`, `No ${isB2Only ? "B2 " : ""}words due today`)}</>}
+          {daily.maintenance.length > 0 && <> · +{daily.maintenance.length} {t("για έλεγχο διατήρησης", "for retention check")}</>}
         </div>
         <div style={{ fontSize: 11.5, color: "rgba(245,240,230,0.56)", marginTop: 4 }}>
-          Περιλαμβάνει όλα τα παιχνίδια: κάρτες, πολλαπλή επιλογή, κενό, συμφραζόμενο &amp; γράψιμο.
+          {t(
+            "Περιλαμβάνει όλα τα παιχνίδια: κάρτες, πολλαπλή επιλογή, κενό, συμφραζόμενο & γράψιμο.",
+            "Includes all exercises: flashcards, multiple choice, fill blank, context & typed recall.",
+          )}
         </div>
         {daily.all.length > 0 ? (
           <button
             onClick={startDaily}
             style={{ marginTop: 18, width: "100%", padding: "15px 0", borderRadius: 999, background: "#F5F0E6", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
           >
-            {isB2Only ? "Ξεκίνα ημερήσια εξάσκηση B2" : "Ξεκίνα την εξάσκηση"} <ChevronRight size={16} />
+            {isB2Only ? t("Ξεκίνα ημερήσια εξάσκηση B2", "Start daily B2 practice") : t("Ξεκίνα την εξάσκηση", "Start daily practice")} <ChevronRight size={16} />
           </button>
         ) : (
           <div style={{ marginTop: 16, fontSize: 12.5, color: "rgba(245,240,230,0.55)" }}>
-            Όλα ενημερωμένα — ξαναέλα αύριο, ή κάνε ελεύθερη εξάσκηση παρακάτω.
+            {t("Όλα ενημερωμένα — ξαναέλα αύριο, ή κάνε ελεύθερη εξάσκηση παρακάτω.", "All caught up — come back tomorrow, or try free practice below.")}
           </div>
         )}
       </div>
@@ -2009,18 +2137,21 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
       <div className="ww-tag-card" style={{ padding: "18px 18px", marginBottom: 18, borderLeft: `3px solid ${isB2Only ? "#4FA091" : "#8B7BC7"}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div className="ww-mono" style={{ fontSize: 12, color: isB2Only ? "#4FA091" : "#8B7BC7" }}>
-            {isB2Only ? "Τεστ B2 · Όλα τα παιχνίδια" : "Τεστ · Όλα τα παιχνίδια"}
-            {(daysSinceTest === null || daysSinceTest >= 7) ? " · ώρα για τεστ!" : ""}
+            {isB2Only ? t("Τεστ B2 · Όλα τα παιχνίδια", "B2 Test · All exercises") : t("Τεστ · Όλα τα παιχνίδια", "Test · All exercises")}
+            {(daysSinceTest === null || daysSinceTest >= 7) ? t(" · ώρα για τεστ!", " · time for a test!") : ""}
           </div>
           {isB2Only && <Pill color="#4FA091" bg="rgba(79,160,145,0.14)">B2</Pill>}
         </div>
         <div className="ww-display" style={{ fontSize: 19, fontWeight: 700, marginTop: 6 }}>
           {lastTest && lastTest.total > 0
-            ? `Τελευταίο${isB2Only ? " B2" : ""}: ${Math.round(((lastTest.exact + lastTest.near) / lastTest.total) * 100)}%`
-            : (isB2Only ? "Δεν έχεις κάνει ακόμα τεστ B2" : "Δεν έχεις κάνει ακόμα τεστ")}
+            ? t(`Τελευταίο${isB2Only ? " B2" : ""}: ${Math.round(((lastTest.exact + lastTest.near) / lastTest.total) * 100)}%`, `Last${isB2Only ? " B2" : ""}: ${Math.round(((lastTest.exact + lastTest.near) / lastTest.total) * 100)}%`)
+            : (isB2Only ? t("Δεν έχεις κάνει ακόμα τεστ B2", "You haven't taken a B2 test yet") : t("Δεν έχεις κάνει ακόμα τεστ", "You haven't taken a test yet"))}
         </div>
         <div style={{ fontSize: 12.5, color: "#8B8680", marginTop: 4, lineHeight: 1.5 }}>
-          {testSize} πραγματικά τυχαίες {isB2Only ? "B2 " : ""}λέξεις (από {testPool.length}) · όλα τα παιχνίδια · χωρίς υποδείξεις · ειλικρινές ποσοστό στο τέλος.
+          {t(
+            `${testSize} πραγματικά τυχαίες ${isB2Only ? "B2 " : ""}λέξεις (από ${testPool.length}) · όλα τα παιχνίδια · χωρίς υποδείξεις · ειλικρινές ποσοστό στο τέλος.`,
+            `${testSize} truly random ${isB2Only ? "B2 " : ""}words (of ${testPool.length}) · all exercises · no hints · honest score at the end.`,
+          )}
         </div>
         <button
           onClick={startTest}
@@ -2032,21 +2163,21 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
             fontWeight: 700, fontSize: 13.5,
           }}
         >
-          {isB2Only ? "Ξεκίνα τεστ B2" : "Ξεκίνα το τεστ"}
+          {isB2Only ? t("Ξεκίνα τεστ B2", "Start B2 test") : t("Ξεκίνα το τεστ", "Start test")}
         </button>
       </div>
 
       {queuedCount > 0 && (
         <div className="ww-tag-card" style={{ padding: "16px 18px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 14.5 }}>📥 {queuedCount} λέξεις σε αναμονή</div>
-            <div style={{ fontSize: 12, color: "#8B8680", marginTop: 2 }}>Ενεργοποιούνται αυτόματα 10 τη μέρα.</div>
+            <div style={{ fontWeight: 600, fontSize: 14.5 }}>📥 {queuedCount} {t("λέξεις σε αναμονή", "queued words")}</div>
+            <div style={{ fontSize: 12, color: "#8B8680", marginTop: 2 }}>{t("Ενεργοποιούνται αυτόματα 10 τη μέρα.", "10 activate automatically each day.")}</div>
           </div>
           <button
-            onClick={() => { const n = ctx.activateMore(10); setNote(n ? `Ενεργοποιήθηκαν ${n} ακόμα λέξεις.` : ""); }}
+            onClick={() => { const n = ctx.activateMore(10); setNote(n ? t(`Ενεργοποιήθηκαν ${n} ακόμα λέξεις.`, `Activated ${n} more words.`) : ""); }}
             style={{ padding: "9px 14px", borderRadius: 999, background: "#FFFFFF", border: "1px solid #E8E0CE", color: "#211F1C", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap" }}
           >
-            +10 ακόμα
+            {t("+10 ακόμα", "+10 more")}
           </button>
         </div>
       )}
@@ -2054,7 +2185,7 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
       {note && <div className="ww-pop" style={{ fontSize: 13, color: "#B07A2A", marginBottom: 12 }}>{note}</div>}
 
       <div style={{ fontSize: 12, color: "#A79F8E", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        Ελεύθερη εξάσκηση{isB2Only ? " · Μόνο B2" : ""}
+        {t("Ελεύθερη εξάσκηση", "Free practice")}{isB2Only ? t(" · Μόνο B2", " · B2 Only") : ""}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {modes.map((m) => {
@@ -2065,7 +2196,7 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
               onClick={() => {
                 if (m.id === "fav") { startFav(); return; }
                 if (!scopedVocab.length) {
-                  setNote(isB2Only ? "Δεν υπάρχουν διαθέσιμες λέξεις επιπέδου B2." : "Δεν υπάρχουν διαθέσιμες λέξεις.");
+                  setNote(isB2Only ? t("Δεν υπάρχουν διαθέσιμες λέξεις επιπέδου B2.", "No B2 words available.") : t("Δεν υπάρχουν διαθέσιμες λέξεις.", "No words available."));
                   return;
                 }
                 setNote("");
@@ -2087,8 +2218,11 @@ function LearnScreen({ vocab, updateVocab, meta, updateMeta, autoStartDaily, onA
 }
 
 function FamilyMemberCard({ item, accentColor, isBase, vocab, onNavigate }) {
-  const info = item.prefix ? PREFIX_MEANINGS[item.prefix] || null : null;
+  const { lang } = useAppLang();
+  const prefixTable = lang === "en" ? PREFIX_MEANINGS_EN : PREFIX_MEANINGS;
+  const info = item.prefix ? prefixTable[item.prefix] || null : null;
   const linkedWord = vocab ? vocab.find((w) => normalizedWord(w.word) === normalizedWord(item.word)) : null;
+  const displayMeaning = linkedWord ? wordPrimaryMeanings(linkedWord, lang).join(", ") : item.meaning;
   const Wrapper = linkedWord ? "button" : "div";
   return (
     <Wrapper
@@ -2106,7 +2240,7 @@ function FamilyMemberCard({ item, accentColor, isBase, vocab, onNavigate }) {
             {item.prefix && !isBase && <Pill color={accentColor} bg="rgba(139,123,199,0.15)">{item.prefix}</Pill>}
             {item.separable && <Pill color="#4FA091" bg="rgba(79,160,145,0.15)">trennbar</Pill>}
           </div>
-          <div style={{ fontSize: 13, color: "#4A453D", marginTop: 4 }}>{item.meaning}</div>
+          <div style={{ fontSize: 13, color: "#4A453D", marginTop: 4 }}>{displayMeaning}</div>
         </div>
         {linkedWord && <ChevronRight size={16} color="#C4BCA9" style={{ flexShrink: 0, marginTop: 4 }} />}
       </div>
@@ -2120,6 +2254,7 @@ function FamilyMemberCard({ item, accentColor, isBase, vocab, onNavigate }) {
 }
 
 function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
+  const { lang, t } = useAppLang();
   const groups = familyGroups(word);
   const totalCount = familyMembers(word).length;
   const hasGrouped = totalCount > 0;
@@ -2141,12 +2276,12 @@ function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <Pill color="#8B7BC7" bg="rgba(139,123,199,0.15)">Wortfamilie</Pill>
+            <Pill color="#8B7BC7" bg="rgba(139,123,199,0.15)">{t("Wortfamilie", "Word Family")}</Pill>
             <div className="ww-display" style={{ fontSize: 22, fontWeight: 600, marginTop: 8 }}>
-              Stamm: {word.stem || word.word}
+              {t("Stamm:", "Stem:")} {word.stem || word.word}
             </div>
             <div style={{ fontSize: 12, color: "#8B8680", marginTop: 2 }}>
-              {totalCount} verwandte Wörter{linkHint(vocab, word)}
+              {totalCount} {t("verwandte Wörter", "related words")}{linkHint(vocab, word, lang)}
             </div>
           </div>
           <button onClick={onClose} style={{ background: "#ECE4D3", border: "none", borderRadius: "50%", width: 30, height: 30, color: "#8B8680", flexShrink: 0 }}>
@@ -2158,7 +2293,7 @@ function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
           <>
             {groups.verbs.length > 0 && (
               <>
-                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔹 Ρήματα</div>
+                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔹 {t("Ρήματα", "Verbs")}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {groups.verbs.map((item, i) => (
                     <FamilyMemberCard key={i} item={item} accentColor="#8B7BC7" isBase={item.prefix === "-"} vocab={vocab} onNavigate={navigate} />
@@ -2168,7 +2303,7 @@ function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
             )}
             {groups.nouns.length > 0 && (
               <>
-                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔸 Ουσιαστικά</div>
+                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔸 {t("Ουσιαστικά", "Nouns")}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {groups.nouns.map((item, i) => (
                     <FamilyMemberCard key={i} item={item} accentColor="#CB9146" isBase={false} vocab={vocab} onNavigate={navigate} />
@@ -2178,7 +2313,7 @@ function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
             )}
             {groups.adjectives.length > 0 && (
               <>
-                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔺 Επίθετα</div>
+                <div style={{ fontSize: 11.5, color: "#A79F8E", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 }}>🔺 {t("Επίθετα", "Adjectives")}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {groups.adjectives.map((item, i) => (
                     <FamilyMemberCard key={i} item={item} accentColor="#4FA091" isBase={false} vocab={vocab} onNavigate={navigate} />
@@ -2199,15 +2334,16 @@ function WordFamilyModal({ word, onClose, vocab, onOpenWord }) {
   );
 }
 
-function linkHint(vocab, word) {
+function linkHint(vocab, word, lang = "el") {
   if (!vocab) return "";
   const all = familyMembers(word);
   const linked = all.filter((item) => vocab.some((w) => normalizedWord(w.word) === normalizedWord(item.word))).length;
-  return linked > 0 ? ` · ${linked} με δική τους καρτέλα` : "";
+  return linked > 0 ? (lang === "en" ? ` · ${linked} with own card` : ` · ${linked} με δική τους καρτέλα`) : "";
 }
 
 function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
   const ctx = useContext(AppCtx);
+  const { lang, t } = useAppLang();
   const [showFamily, setShowFamily] = useState(false);
   const allV = vocab || ctx.vocab || [];
   const live = allV.find((x) => x.id === word.id) || word;
@@ -2216,6 +2352,8 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
   const hasFamily = familyCount > 1;
   const examples = (word.examples || []).filter((x) => x && x.de).slice(0, 2);
   const sectionLabel = { fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 };
+  const primaryMeanings = wordPrimaryMeanings(word, lang).join(" · ");
+  const secondaryMeanings = wordSecondaryMeanings(word, lang).join(", ");
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(10,12,16,0.6)", display: "flex", alignItems: "flex-end", zIndex: 50 }}>
@@ -2228,7 +2366,7 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <Pill color="#CB9146" bg="rgba(203,145,70,0.15)">{word.cefr ? word.cefr + " · " : ""}{typeLabel(word.type)}</Pill>
-              {live.queued && <Pill>σε αναμονή</Pill>}
+              {live.queued && <Pill>{t("σε αναμονή", "queued")}</Pill>}
             </div>
             <div className="ww-display" style={{ fontSize: 26, fontWeight: 600, marginTop: 8 }}>{word.word}</div>
             {word.plural && <div style={{ fontSize: 12, color: "#A79F8E" }}>Plural: {word.plural}</div>}
@@ -2245,12 +2383,15 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
           </div>
         </div>
 
-        <div style={{ marginTop: 16, fontSize: 16, fontWeight: 600 }}>{((word.meaning && word.meaning.greek) || []).join(" · ")}</div>
-        <div style={{ fontSize: 13, color: "#8B8680" }}>{((word.meaning && word.meaning.english) || []).join(", ")}</div>
+        <div style={{ marginTop: 16, fontSize: 16, fontWeight: 600 }}>{primaryMeanings}</div>
+        {secondaryMeanings && <div style={{ fontSize: 13, color: "#8B8680" }}>{secondaryMeanings}</div>}
 
         {live.lite && (
           <div style={{ marginTop: 14, fontSize: 12.5, color: "#8B8680", background: "#F5F0E6", padding: 12, borderRadius: 10, lineHeight: 1.5 }}>
-            Βασική καταχώριση (μόνο μετάφραση). Στείλε μου τη λέξη για πλήρη ανάλυση — ετυμολογία, παραδείγματα, συνώνυμα.
+            {t(
+              "Βασική καταχώριση (μόνο μετάφραση). Στείλε μου τη λέξη για πλήρη ανάλυση — ετυμολογία, παραδείγματα, συνώνυμα.",
+              "Basic entry (translation only). Enrich this word to add etymology, examples, and synonyms.",
+            )}
           </div>
         )}
 
@@ -2263,7 +2404,9 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
         {examples.map((ex, i) => (
           <div key={i} style={{ marginTop: 14, fontSize: 13.5, lineHeight: 1.6 }}>
             „{ex.de}“
-            <div style={{ color: "#A79F8E", fontSize: 12.5 }}>{ex.el}</div>
+            <div style={{ color: "#A79F8E", fontSize: 12.5 }}>
+              {lang === "en" ? (ex.en || ex.el) : ex.el}
+            </div>
           </div>
         ))}
 
@@ -2271,13 +2414,13 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
           <div style={{ marginTop: 14, display: "flex", gap: 20, flexWrap: "wrap" }}>
             {(word.synonyms || []).length > 0 && (
               <div>
-                <div style={{ ...sectionLabel, color: "#A79F8E" }}>≈ Synonyme</div>
+                <div style={{ ...sectionLabel, color: "#A79F8E" }}>≈ {t("Synonyme", "Synonyms")}</div>
                 <div style={{ fontSize: 13, color: "#211F1C" }}>{word.synonyms.join(", ")}</div>
               </div>
             )}
             {(word.antonyms || []).length > 0 && (
               <div>
-                <div style={{ ...sectionLabel, color: "#A79F8E" }}>↔ Antonyme</div>
+                <div style={{ ...sectionLabel, color: "#A79F8E" }}>↔ {t("Antonyme", "Antonyms")}</div>
                 <div style={{ fontSize: 13, color: "#211F1C" }}>{word.antonyms.join(", ")}</div>
               </div>
             )}
@@ -2288,14 +2431,14 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
 
         {word.etymology && (
           <div style={{ marginTop: 14, fontSize: 12.5, color: "#4A453D", lineHeight: 1.5, background: "#F5F0E6", padding: 12, borderRadius: 10 }}>
-            <div style={{ ...sectionLabel, color: "#A79F8E" }}>📜 Herkunft & Geschichte</div>
+            <div style={{ ...sectionLabel, color: "#A79F8E" }}>📜 {t("Herkunft & Geschichte", "Origin & Etymology")}</div>
             {word.etymology}
           </div>
         )}
 
         {word.funFact && (
           <div style={{ marginTop: 14, fontSize: 12.5, color: "#211F1C", lineHeight: 1.5, background: "rgba(203,145,70,0.1)", border: "1px solid #E8D6B0", padding: 12, borderRadius: 10 }}>
-            <div style={{ ...sectionLabel, color: "#CB9146" }}>🌟 Wissenswertes</div>
+            <div style={{ ...sectionLabel, color: "#CB9146" }}>🌟 {t("Wissenswertes", "Good to know")}</div>
             {word.funFact}
           </div>
         )}
@@ -2304,12 +2447,12 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
           <Button variant="outline" className="mt-4 w-full gap-2"
             onClick={() => setShowFamily(true)}
           >
-            <Shuffle size={14} /> Οικογένεια λέξεων ({familyCount})
+            <Shuffle size={14} /> {t("Οικογένεια λέξεων", "Word family")} ({familyCount})
           </Button>
         )}
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 16 }}>
-          {(word.tags || []).map((t, i) => <Pill key={i}>{t}</Pill>)}
+          {(word.tags || []).map((tag, i) => <Pill key={i}>{tag}</Pill>)}
         </div>
 
         {onDelete && (
@@ -2317,7 +2460,7 @@ function WordDetailSheet({ word, onClose, onDelete, vocab, onOpenWord }) {
             onClick={() => onDelete(word)}
             style={{ marginTop: 20, width: "100%", padding: "12px 0", borderRadius: 12, background: "rgba(224,88,74,0.1)", border: "1px solid #F0C9C2", color: "#E0584A", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
           >
-            <Trash2 size={14} /> Wort löschen
+            <Trash2 size={14} /> {t("Wort löschen", "Delete word")}
           </button>
         )}
       </div>
@@ -2330,6 +2473,7 @@ function normalizeImportedWord(raw) { return normalizeEntry(fixArticleWord(raw))
 
 function AddWordModal({ onClose, initialMode = "text" }) {
   const ctx = useContext(AppCtx);
+  const { t } = useAppLang();
   const today = dateStr(now());
   const [mode, setMode] = useState(initialMode);
   const [msg, setMsg] = useState(null);
@@ -2349,11 +2493,11 @@ function AddWordModal({ onClose, initialMode = "text" }) {
 
   function finishWith(res) {
     const parts = [];
-    if (res.added) parts.push(`${res.added} νέες`);
-    if (res.upgraded || res.updated) parts.push(`${res.upgraded || res.updated} αναβαθμίστηκαν`);
-    if (res.skipped) parts.push(`${res.skipped} υπήρχαν ήδη (παραλείφθηκαν)`);
+    if (res.added) parts.push(t(`${res.added} νέες`, `${res.added} new`));
+    if (res.upgraded || res.updated) parts.push(t(`${res.upgraded || res.updated} αναβαθμίστηκαν`, `${res.upgraded || res.updated} upgraded`));
+    if (res.skipped) parts.push(t(`${res.skipped} υπήρχαν ήδη (παραλείφθηκαν)`, `${res.skipped} already existed (skipped)`));
     const ok = (res.added || 0) + (res.upgraded || res.updated || 0) > 0;
-    setMsg({ ok, text: (ok ? "✓ " : "") + (parts.join(" · ") || "Τίποτα για προσθήκη") });
+    setMsg({ ok, text: (ok ? "✓ " : "") + (parts.join(" · ") || t("Τίποτα για προσθήκη", "Nothing to add")) });
     if (ok) setTimeout(onClose, 1300);
   }
 
@@ -2385,7 +2529,13 @@ function AddWordModal({ onClose, initialMode = "text" }) {
     const r = parseTextEntries(text);
     if (!r.entries.length) {
       setRows(null);
-      setMsg({ ok: false, text: "Δεν αναγνωρίστηκε καμία λέξη. Δοκίμασε π.χ. «der Tisch ; το τραπέζι» (μία ανά γραμμή) ή επικόλλησε ολόκληρη την ανάλυση με αριθμημένες λέξεις." });
+      setMsg({
+        ok: false,
+        text: t(
+          "Δεν αναγνωρίστηκε καμία λέξη. Δοκίμασε π.χ. «der Tisch ; το τραπέζι» (μία ανά γραμμή) ή επικόλλησε ολόκληρη την ανάλυση με αριθμημένες λέξεις.",
+          "No words recognized. Try e.g. “der Tisch ; the table” (one per line) or paste a numbered vocabulary list.",
+        ),
+      });
       return;
     }
     const rs = r.entries.map((e) => {
@@ -2403,7 +2553,7 @@ function AddWordModal({ onClose, initialMode = "text" }) {
   function updateRow(i, patch) { setRows((prev) => prev.map((r, k) => (k === i ? { ...r, ...patch } : r))); }
   function confirmRows() {
     const chosen = rows.filter((r) => r.include && r.word.trim() && r.greekText.trim());
-    if (!chosen.length) { setMsg({ ok: false, text: "Δεν έχεις επιλέξει λέξεις με μετάφραση." }); return; }
+    if (!chosen.length) { setMsg({ ok: false, text: t("Δεν έχεις επιλέξει λέξεις με μετάφραση.", "No words with a translation selected.") }); return; }
     const entries = chosen.map((r) => {
       const base = r.e;
       const word = r.word.trim();
@@ -2438,21 +2588,21 @@ function AddWordModal({ onClose, initialMode = "text" }) {
   const shown = rows ? rows.slice(0, 40) : [];
   const includedCount = rows ? rows.filter((r) => r.include && r.word.trim() && r.greekText.trim()).length : 0;
   const hasLite = rows ? rows.some((r) => r.e.lite) : false;
-  const statusTag = (s) => (s === "new" ? { t: "νέα", c: "#3F8C5F" } : s === "upgrade" ? { t: "αναβάθμιση", c: "#8B7BC7" } : { t: "υπάρχει ήδη", c: "#A79F8E" });
+  const statusTag = (s) => (s === "new" ? { t: t("νέα", "new"), c: "#3F8C5F" } : s === "upgrade" ? { t: t("αναβάθμιση", "upgrade"), c: "#8B7BC7" } : { t: t("υπάρχει ήδη", "exists"), c: "#A79F8E" });
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(10,12,16,0.6)", zIndex: 60, display: "flex", alignItems: "flex-end" }}>
       <div onClick={(e) => e.stopPropagation()} className="ww-pop" style={{ width: "100%", maxHeight: "90vh", overflowY: "auto", background: "#FFFFFF", borderRadius: "20px 20px 0 0", padding: "20px 22px 34px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div className="ww-display" style={{ fontSize: 20, fontWeight: 600 }}>Νέες λέξεις</div>
+          <div className="ww-display" style={{ fontSize: 20, fontWeight: 600 }}>{t("Νέες λέξεις", "Add Words")}</div>
           <button onClick={onClose} style={{ background: "#ECE4D3", border: "none", borderRadius: "50%", width: 30, height: 30, color: "#8B8680" }}>
             <X size={16} />
           </button>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          {tabBtn("text", "📝 Κείμενο/λίστα", "#4FA091")}
-          {tabBtn("form", "✍️ Φόρμα", "#CB9146")}
+          {tabBtn("text", t("📝 Κείμενο/λίστα", "📝 Text/List"), "#4FA091")}
+          {tabBtn("form", t("✍️ Φόρμα", "✍️ Form"), "#CB9146")}
           {tabBtn("json", "📋 JSON", "#8B7BC7")}
         </div>
 
@@ -2467,12 +2617,15 @@ function AddWordModal({ onClose, initialMode = "text" }) {
         {mode === "text" && (
           <>
             <div style={{ fontSize: 12, color: "#8B8680", marginTop: 12, lineHeight: 1.5 }}>
-              Επικόλλησε είτε μια <strong>λίστα</strong> (μία λέξη ανά γραμμή, π.χ. <span className="ww-mono">der Tisch ; το τραπέζι</span>) είτε <strong>ολόκληρη την ανάλυση</strong> από άλλο AI με αριθμημένες λέξεις. Η εφαρμογή φτιάχνει τις καταχωρήσεις και ελέγχει τα διπλότυπα μόνη της.
+              {t(
+                "Επικόλλησε είτε μια λίστα (μία λέξη ανά γραμμή, π.χ. der Tisch ; το τραπέζι) είτε ολόκληρη την ανάλυση με αριθμημένες λέξεις. Η εφαρμογή φτιάχνει τις καταχωρήσεις και ελέγχει τα διπλότυπα μόνη της.",
+                "Paste either a list (one word per line, e.g. der Tisch ; the table) or a numbered word breakdown. The app creates entries and checks duplicates automatically.",
+              )}
             </div>
             <textarea
               value={text}
               onChange={(e) => { setText(e.target.value); setRows(null); }}
-              placeholder={"der Tisch ; το τραπέζι\nsich freuen = χαίρομαι\n\n— ή —\n\n36. Es kommt darauf an, wie man das sieht.\nΜετάφραση: ..."}
+              placeholder={t("der Tisch ; το τραπέζι\nsich freuen = χαίρομαι", "der Tisch ; the table\nsich freuen = to be glad")}
               style={{ ...inputStyle, minHeight: 170, marginTop: 10, fontSize: 12.5, resize: "vertical" }}
             />
             {!rows && (
@@ -2481,14 +2634,14 @@ function AddWordModal({ onClose, initialMode = "text" }) {
                 disabled={!text.trim()}
                 style={{ marginTop: 14, width: "100%", padding: "14px 0", borderRadius: 12, background: text.trim() ? "#4FA091" : "#D9D2C0", border: "none", color: "#14201A", fontWeight: 700, fontSize: 14 }}
               >
-                Ανάλυση κειμένου
+                {t("Ανάλυση κειμένου", "Analyze text")}
               </button>
             )}
             {rows && (
               <>
                 <div style={{ fontSize: 12.5, color: "#4A453D", marginTop: 14 }}>
-                  Βρέθηκαν <strong>{rows.length}</strong> λέξεις · νέες <strong>{rows.filter((r) => r.status === "new").length}</strong> · υπάρχουν ήδη <strong>{rows.filter((r) => r.status === "dup").length}</strong>
-                  {rows.length > shown.length && <span style={{ color: "#8B8680" }}> (δείχνω τις πρώτες {shown.length}· οι υπόλοιπες μπαίνουν κι αυτές)</span>}
+                  {t("Βρέθηκαν", "Found")} <strong>{rows.length}</strong> {t("λέξεις · νέες", "words · new")} <strong>{rows.filter((r) => r.status === "new").length}</strong> · {t("υπάρχουν ήδη", "already exist")} <strong>{rows.filter((r) => r.status === "dup").length}</strong>
+                  {rows.length > shown.length && <span style={{ color: "#8B8680" }}> {t(`(δείχνω τις πρώτες ${shown.length}· οι υπόλοιπες μπαίνουν κι αυτές)`, `(showing first ${shown.length}; the rest are included too)`)}</span>}
                 </div>
                 <div style={{ marginTop: 8 }}>
                   {shown.map((r, i) => {
@@ -2504,7 +2657,7 @@ function AddWordModal({ onClose, initialMode = "text" }) {
                           <input
                             value={r.greekText}
                             onChange={(e) => updateRow(i, { greekText: e.target.value })}
-                            placeholder="μετάφραση"
+                            placeholder={t("μετάφραση", "translation")}
                             style={{ ...inputStyle, marginTop: 0, flex: 1, borderColor: r.greekText.trim() ? "#E8E0CE" : "#E0584A" }}
                           />
                           <select value={r.type} onChange={(e) => updateRow(i, { type: e.target.value })} style={{ ...inputStyle, marginTop: 0, width: 96 }}>
@@ -2515,14 +2668,14 @@ function AddWordModal({ onClose, initialMode = "text" }) {
                     );
                   })}
                 </div>
-                <label style={labelStyle}>Επίπεδο για όσες δεν έχουν δικό τους</label>
+                <label style={labelStyle}>{t("Επίπεδο για όσες δεν έχουν δικό τους", "Default CEFR level if unspecified")}</label>
                 <select value={level} onChange={(e) => setLevel(e.target.value)} style={inputStyle}>
-                  <option value="">— (χωρίς επίπεδο)</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+                  <option value="">{t("— (χωρίς επίπεδο)", "— (no level)")}</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
                 </select>
                 {hasLite && (
                   <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 14, fontSize: 12.5, color: "#4A453D", lineHeight: 1.5 }}>
                     <input type="checkbox" checked={queueLite} onChange={(e) => setQueueLite(e.target.checked)} style={{ marginTop: 3 }} />
-                    <span>Βάλε τις βασικές λέξεις σε <strong>ουρά</strong> — 10 νέες τη μέρα, ώστε να μη γεμίσει η Ημερήσια Εξάσκηση.</span>
+                    <span>{t("Βάλε τις βασικές λέξεις σε ουρά — 10 νέες τη μέρα, ώστε να μη γεμίσει η Ημερήσια Εξάσκηση.", "Queue basic words — 10 new per day, so Daily Practice stays manageable.")}</span>
                   </label>
                 )}
                 <button
@@ -2530,10 +2683,10 @@ function AddWordModal({ onClose, initialMode = "text" }) {
                   disabled={!includedCount}
                   style={{ marginTop: 16, width: "100%", padding: "14px 0", borderRadius: 12, background: includedCount ? "#4FA091" : "#D9D2C0", border: "none", color: "#14201A", fontWeight: 700, fontSize: 14 }}
                 >
-                  Προσθήκη {includedCount} λέξεων
+                  {t(`Προσθήκη ${includedCount} λέξεων`, `Add ${includedCount} words`)}
                 </button>
                 <button onClick={() => setRows(null)} style={{ marginTop: 8, width: "100%", background: "none", border: "none", color: "#8B8680", fontSize: 12.5, padding: 6 }}>
-                  ← Πίσω στο κείμενο
+                  {t("← Πίσω στο κείμενο", "← Back to text")}
                 </button>
               </>
             )}
@@ -2542,11 +2695,13 @@ function AddWordModal({ onClose, initialMode = "text" }) {
 
         {mode === "json" && (
           <>
-            <div style={{ fontSize: 12, color: "#8B8680", marginTop: 12 }}>Επικόλλησε το JSON (μία λέξη ή λίστα λέξεων).</div>
+            <div style={{ fontSize: 12, color: "#8B8680", marginTop: 12 }}>
+              {t("Επικόλλησε το JSON (μία λέξη ή λίστα λέξεων).", "Paste JSON (a single word object or an array of words).")}
+            </div>
             <textarea
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
-              placeholder='[{"word": "der Tisch", "meaning": {"greek": ["το τραπέζι"]}, ...}]'
+              placeholder='[{"word": "der Tisch", "meaning": {"greek": ["το τραπέζι"], "english": ["the table"]}}]'
               style={{ ...inputStyle, minHeight: 200, marginTop: 10, fontFamily: "'Space Mono', monospace", fontSize: 12, resize: "vertical" }}
             />
             <button
@@ -2554,24 +2709,24 @@ function AddWordModal({ onClose, initialMode = "text" }) {
               disabled={!jsonText.trim()}
               style={{ marginTop: 14, width: "100%", padding: "14px 0", borderRadius: 12, background: jsonText.trim() ? "#8B7BC7" : "#D9D2C0", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14 }}
             >
-              Προσθήκη
+              {t("Προσθήκη", "Import")}
             </button>
           </>
         )}
 
         {mode === "form" && (
           <>
-            <label style={labelStyle}>Wort *</label>
-            <input style={inputStyle} value={form.word} onChange={set("word")} placeholder="z. B. Tisch" />
+            <label style={labelStyle}>{t("Wort *", "Word *")}</label>
+            <input style={inputStyle} value={form.word} onChange={set("word")} placeholder={t("z. B. Tisch", "e.g. Tisch")} />
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Wortart</label>
+                <label style={labelStyle}>{t("Wortart", "Part of speech")}</label>
                 <select style={inputStyle} value={form.type} onChange={set("type")}>
                   <option>Nomen</option><option>Verb</option><option>Adjektiv</option><option>Sonstiges</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Niveau</label>
+                <label style={labelStyle}>{t("Niveau", "CEFR Level")}</label>
                 <select style={inputStyle} value={form.cefr} onChange={set("cefr")}>
                   <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
                 </select>
@@ -2580,7 +2735,7 @@ function AddWordModal({ onClose, initialMode = "text" }) {
             {form.type === "Nomen" && (
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Artikel</label>
+                  <label style={labelStyle}>{t("Artikel", "Article")}</label>
                   <select style={inputStyle} value={form.article} onChange={set("article")}>
                     <option>der</option><option>die</option><option>das</option>
                   </select>
@@ -2591,36 +2746,36 @@ function AddWordModal({ onClose, initialMode = "text" }) {
                 </div>
               </div>
             )}
-            <label style={labelStyle}>Ελληνικά (χωρισμένα με κόμμα)</label>
+            <label style={labelStyle}>{t("Ελληνικά (χωρισμένα με κόμμα)", "Greek (comma-separated)")}</label>
             <input style={inputStyle} value={form.greek} onChange={set("greek")} placeholder="το τραπέζι" />
-            <label style={labelStyle}>English (optional)</label>
+            <label style={labelStyle}>{t("English (optional)", "English (comma-separated)")}</label>
             <input style={inputStyle} value={form.english} onChange={set("english")} placeholder="the table" />
-            <label style={labelStyle}>Beispielsatz (Deutsch)</label>
+            <label style={labelStyle}>{t("Beispielsatz (Deutsch)", "Example sentence (German)")}</label>
             <input style={inputStyle} value={form.exampleDe} onChange={set("exampleDe")} />
-            <label style={labelStyle}>Μετάφραση παραδείγματος</label>
+            <label style={labelStyle}>{t("Μετάφραση παραδείγματος", "Example translation")}</label>
             <input style={inputStyle} value={form.exampleEl} onChange={set("exampleEl")} />
-            <label style={labelStyle}>Lückensatz (με ______ στη θέση της λέξης)</label>
+            <label style={labelStyle}>{t("Lückensatz (με ______ στη θέση της λέξης)", "Fill-in-the-blank sentence (use ______ for the word)")}</label>
             <input style={inputStyle} value={form.sentence} onChange={set("sentence")} placeholder="Der ______ ist groß." />
-            <label style={labelStyle}>Απάντηση Lückensatz (αν διαφέρει από τη λέξη)</label>
+            <label style={labelStyle}>{t("Απάντηση Lückensatz (αν διαφέρει από τη λέξη)", "Fill-blank answer (if different from word)")}</label>
             <input style={inputStyle} value={form.answer} onChange={set("answer")} />
-            <label style={labelStyle}>Synonyme (Komma-getrennt)</label>
+            <label style={labelStyle}>{t("Synonyme (Komma-getrennt)", "Synonyms (comma-separated)")}</label>
             <input style={inputStyle} value={form.synonyms} onChange={set("synonyms")} />
-            <label style={labelStyle}>Antonyme (Komma-getrennt)</label>
+            <label style={labelStyle}>{t("Antonyme (Komma-getrennt)", "Antonyms (comma-separated)")}</label>
             <input style={inputStyle} value={form.antonyms} onChange={set("antonyms")} />
-            <label style={labelStyle}>Eselsbrücke (optional)</label>
+            <label style={labelStyle}>{t("Eselsbrücke (optional)", "Memory hook (optional)")}</label>
             <input style={inputStyle} value={form.memoryHook} onChange={set("memoryHook")} />
-            <label style={labelStyle}>Herkunft / Ετυμολογία (optional)</label>
+            <label style={labelStyle}>{t("Herkunft / Ετυμολογία (optional)", "Origin / Etymology (optional)")}</label>
             <textarea style={{ ...inputStyle, minHeight: 60 }} value={form.etymology} onChange={set("etymology")} />
-            <label style={labelStyle}>Wissenswertes (optional)</label>
+            <label style={labelStyle}>{t("Wissenswertes (optional)", "Good to know (optional)")}</label>
             <textarea style={{ ...inputStyle, minHeight: 60 }} value={form.funFact} onChange={set("funFact")} />
-            <label style={labelStyle}>Tags (Komma-getrennt)</label>
+            <label style={labelStyle}>{t("Tags (Komma-getrennt)", "Tags (comma-separated)")}</label>
             <input style={inputStyle} value={form.tags} onChange={set("tags")} />
             <button
               onClick={submitForm}
               disabled={!form.word.trim()}
               style={{ marginTop: 20, width: "100%", padding: "14px 0", borderRadius: 12, background: form.word.trim() ? "#CB9146" : "#D9D2C0", border: "none", color: "#211F1C", fontWeight: 700, fontSize: 14 }}
             >
-              Wort hinzufügen
+              {t("Wort hinzufügen", "Add word")}
             </button>
           </>
         )}
@@ -2641,6 +2796,7 @@ function FamiliesScreen({ vocab }) {
 
 function VocabScreen({ vocab, updateVocab }) {
   const ctx = useContext(AppCtx);
+  const { lang, t } = useAppLang();
   const [query, setQuery] = useState("");
   const [filterType, setFilterType] = useState("Alle");
   const [filterLevel, setFilterLevel] = useState("Alle");
@@ -2664,8 +2820,11 @@ function VocabScreen({ vocab, updateVocab }) {
   const filtered = vocab
     .filter((w) => {
       if (!q && (queuedView ? !w.queued : w.queued)) return false;
-      const matchesQuery = !q || w.word.toLowerCase().indexOf(q) > -1 ||
-        ((w.meaning && w.meaning.greek) || []).some((g) => g.toLowerCase().indexOf(q) > -1);
+      const matchesQuery =
+        !q ||
+        w.word.toLowerCase().indexOf(q) > -1 ||
+        ((w.meaning && w.meaning.greek) || []).some((g) => g.toLowerCase().indexOf(q) > -1) ||
+        ((w.meaning && w.meaning.english) || []).some((e) => e.toLowerCase().indexOf(q) > -1);
       const matchesType = filterType === "Alle" || w.type === filterType;
       const matchesLevel = filterLevel === "Alle" || w.cefr === filterLevel;
       const matchesFav = !favOnly || w.fav;
@@ -2682,19 +2841,19 @@ function VocabScreen({ vocab, updateVocab }) {
     <div style={{ padding: "4px 20px 24px" }}>
       <TopBar
         title="Wörter"
-        subtitle={`${activeCount} λέξεις${queuedCount ? ` · ${queuedCount} σε αναμονή` : ""}`}
+        subtitle={`${activeCount} ${t("λέξεις", "words")}${queuedCount ? ` · ${queuedCount} ${t("σε αναμονή", "queued")}` : ""}`}
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               type="button"
               onClick={() => setShowPreviouslyKnown(true)}
-              aria-label="Γνωρίζω ήδη"
+              aria-label={t("Γνωρίζω ήδη", "Already know")}
               style={{ height: 44, padding: "0 12px", borderRadius: 22, background: "rgba(79,160,145,0.15)", border: "1px solid #CFE6E0", color: "#2D6E62", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
             >
               <ListChecks size={16} />
-              <span>Γνωρίζω ήδη</span>
+              <span>{t("Γνωρίζω ήδη", "Already know")}</span>
             </button>
-            <button onClick={() => setAddMode("form")} aria-label="Νέα λέξη" style={{ width: 44, height: 44, borderRadius: "50%", background: "#CB9146", border: "none", color: "#211F1C", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <button onClick={() => setAddMode("form")} aria-label={t("Νέα λέξη", "New word")} style={{ width: 44, height: 44, borderRadius: "50%", background: "#CB9146", border: "none", color: "#211F1C", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Plus size={18} />
             </button>
           </div>
@@ -2706,33 +2865,45 @@ function VocabScreen({ vocab, updateVocab }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Αναζήτηση (Deutsch / Ελληνικά)…"
+          placeholder={t("Αναζήτηση (Deutsch / Ελληνικά)…", "Search (German / English)…")}
           style={{ width: "100%", padding: "11px 12px 11px 36px", borderRadius: 12, border: "1px solid #E8E0CE", background: "#FFFFFF", color: "#211F1C", fontSize: 14, outline: "none" }}
         />
       </div>
 
       <div style={{ display: "flex", gap: 6, marginTop: 10, overflowX: "auto" }} className="ww-scrollbar-none">
-        {types.map((t) => (
-          <button key={t} onClick={() => setFilterType(t)} style={chip(filterType === t, "#CB9146", "rgba(203,145,70,0.15)")}>{t}</button>
+        {types.map((tp) => (
+          <button key={tp} onClick={() => setFilterType(tp)} style={chip(filterType === tp, "#CB9146", "rgba(203,145,70,0.15)")}>
+            {tp === "Alle" ? t("Alle", "All") : tp}
+          </button>
         ))}
-        <button onClick={() => setWeakFirst((v) => !v)} style={chip(weakFirst, "#E0584A", "rgba(224,88,74,0.12)")}>🔴 Αδύναμες πρώτα</button>
-        <button onClick={() => setFavOnly((v) => !v)} style={chip(favOnly, "#CB9146", "rgba(203,145,70,0.15)")}>★ Αγαπημένα ({favCount})</button>
+        <button onClick={() => setWeakFirst((v) => !v)} style={chip(weakFirst, "#E0584A", "rgba(224,88,74,0.12)")}>
+          🔴 {t("Αδύναμες πρώτα", "Weakest first")}
+        </button>
+        <button onClick={() => setFavOnly((v) => !v)} style={chip(favOnly, "#CB9146", "rgba(203,145,70,0.15)")}>
+          ★ {t("Αγαπημένα", "Favorites")} ({favCount})
+        </button>
         {queuedCount > 0 && (
-          <button onClick={() => setQueuedView((v) => !v)} style={chip(queuedView, "#8B7BC7", "rgba(139,123,199,0.12)")}>📥 Σε αναμονή ({queuedCount})</button>
+          <button onClick={() => setQueuedView((v) => !v)} style={chip(queuedView, "#8B7BC7", "rgba(139,123,199,0.12)")}>
+            📥 {t("Σε αναμονή", "Queued")} ({queuedCount})
+          </button>
         )}
       </div>
 
       {levels.length > 2 && (
         <div style={{ display: "flex", gap: 6, marginTop: 8, overflowX: "auto" }} className="ww-scrollbar-none">
           {levels.map((lvl) => (
-            <button key={lvl} onClick={() => setFilterLevel(lvl)} style={{ ...chip(filterLevel === lvl, "#4FA091", "rgba(79,160,145,0.15)"), fontWeight: 600 }}>{lvl}</button>
+            <button key={lvl} onClick={() => setFilterLevel(lvl)} style={{ ...chip(filterLevel === lvl, "#4FA091", "rgba(79,160,145,0.15)"), fontWeight: 600 }}>
+              {lvl === "Alle" ? t("Alle", "All") : lvl}
+            </button>
           ))}
         </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
         {filtered.length === 0 && (
-          <div style={{ textAlign: "center", color: "#A79F8E", fontSize: 13, padding: "30px 0" }}>Δεν βρέθηκαν λέξεις.</div>
+          <div style={{ textAlign: "center", color: "#A79F8E", fontSize: 13, padding: "30px 0" }}>
+            {t("Δεν βρέθηκαν λέξεις.", "No words found.")}
+          </div>
         )}
         {filtered.slice(0, limit).map((w) => (
           <button
@@ -2744,15 +2915,15 @@ function VocabScreen({ vocab, updateVocab }) {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 14.5 }}>
                 {w.word}
-                {w.queued && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#8B7BC7", fontWeight: 600 }}>αναμονή</span>}
-                {isPreviouslyKnown(w) && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#2D6E62", fontWeight: 600 }}>γνωστή</span>}
+                {w.queued && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#8B7BC7", fontWeight: 600 }}>{t("αναμονή", "queued")}</span>}
+                {isPreviouslyKnown(w) && <span style={{ marginLeft: 6, fontSize: 10.5, color: "#2D6E62", fontWeight: 600 }}>{t("γνωστή", "known")}</span>}
               </div>
               <div style={{ fontSize: 12, color: "#8B8680", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {((w.meaning && w.meaning.greek) || []).join(", ")}
+                {wordPrimaryMeanings(w, lang).join(", ")}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-              <span role="button" aria-label="Αγαπημένο" onClick={(e) => { e.stopPropagation(); ctx.toggleFav(w.word); }} style={{ display: "flex", padding: 2 }}>
+              <span role="button" aria-label={t("Αγαπημένο", "Favorite")} onClick={(e) => { e.stopPropagation(); ctx.toggleFav(w.id); }} style={{ display: "flex", padding: 2 }}>
                 <Star size={16} fill={w.fav ? "#CB9146" : "none"} color={w.fav ? "#CB9146" : "#C4BCA9"} />
               </span>
               <ConfidenceBar confidence={(w.learning && w.learning.confidence) || 0} />
@@ -2762,7 +2933,7 @@ function VocabScreen({ vocab, updateVocab }) {
         ))}
         {filtered.length > limit && (
           <button onClick={() => setLimit((l) => l + 80)} style={{ padding: "12px 0", borderRadius: 12, background: "#FFFFFF", border: "1px solid #E8E0CE", color: "#8B8680", fontSize: 13, fontWeight: 600 }}>
-            Φόρτωσε +80 ({filtered.length - limit} ακόμα)
+            {t(`Φόρτωσε +80 (${filtered.length - limit} ακόμα)`, `Load +80 (${filtered.length - limit} more)`)}
           </button>
         )}
       </div>
@@ -2793,8 +2964,15 @@ function VocabScreen({ vocab, updateVocab }) {
 
 /* ============================== GRAMMAR SCREEN ============================== */
 
-function formatDuration(ms) {
+function formatDuration(ms, lang = "el") {
   const totalMin = Math.round(ms / 60000);
+  if (lang === "en") {
+    if (totalMin < 1) return "<1 min";
+    if (totalMin < 60) return `${totalMin} min`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
   if (totalMin < 1) return "<1 λεπτό";
   if (totalMin < 60) return `${totalMin} λεπτά`;
   const h = Math.floor(totalMin / 60);
@@ -2803,6 +2981,7 @@ function formatDuration(ms) {
 }
 
 function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "all" }) {
+  const { lang, t } = useAppLang();
   const ctx = useContext(AppCtx);
   const fileRef = useRef(null);
   const [restoreMsg, setRestoreMsg] = useState("");
@@ -2818,6 +2997,10 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
   const b2Vocab = useMemo(() => vocab.filter(isB2Word), [vocab]);
   const isB2View = statsScope === "b2";
   const statsVocab = isB2View ? b2Vocab : vocab;
+  const statsVocabById = useMemo(
+    () => new Map(statsVocab.map((w) => [String(w.id || w.word), w])),
+    [statsVocab],
+  );
   const progressStats = useMemo(() => vocabProgressStats(vocab, now()), [vocab]);
   const mastered = progressStats.mastered;
   const retained = progressStats.retained;
@@ -2844,9 +3027,18 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
   const activeLearningIdx = Math.max(0, learningRate.days.findIndex((d) => d.date === activeLearningPoint?.date));
   const learningAccent = learningCriterion === "mastered" ? "#6FA96B" : learningCriterion === "started" ? "#4FA091" : "#CB9146";
   const learningCriterionMeta = {
-    assimilated: { label: "Αφομοίωση", hint: "Λέξεις με 3+ ακριβείς ανακλήσεις σε διαφορετικά συμφραζόμενα" },
-    mastered: { label: "Κατάκτηση", hint: "Πλήρης τεκμηρίωση (4 συμφραζόμενα, 2+ ασκήσεις & έλεγχοι 1–2/3–5/7–14 ημ.)" },
-    started: { label: "Έναρξη", hint: "Λέξεις που μπήκαν σε μελέτη για πρώτη φορά" },
+    assimilated: {
+      label: t("Αφομοίωση", "Assimilated"),
+      hint: t("Λέξεις με 3+ ακριβείς ανακλήσεις σε διαφορετικά συμφραζόμενα", "Words with 3+ exact recalls in different contexts"),
+    },
+    mastered: {
+      label: t("Κατάκτηση", "Mastered"),
+      hint: t("Πλήρης τεκμηρίωση (4 συμφραζόμενα, 2+ ασκήσεις & έλεγχοι 1–2/3–5/7–14 ημ.)", "Full evidence (4 contexts, 2+ exercises & 1–2/3–5/7–14 day checks)"),
+    },
+    started: {
+      label: t("Έναρξη", "Started"),
+      hint: t("Λέξεις που μπήκαν σε μελέτη για πρώτη φορά", "Words studied for the first time"),
+    },
   };
 
   const chartData = useMemo(() => {
@@ -2891,9 +3083,9 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
   function onFile(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    if (f.size > MAX_JSON_BYTES) { setRestoreMsg('Το αρχείο υπερβαίνει το όριο 10 MiB.'); e.target.value = ''; return; }
+    if (f.size > MAX_JSON_BYTES) { setRestoreMsg(t("Το αρχείο υπερβαίνει το όριο 10 MiB.", "File exceeds the 10 MiB limit.")); e.target.value = ""; return; }
     const reader = new FileReader();
-    reader.onerror = () => setRestoreMsg('Δεν διαβάστηκε το αρχείο.');
+    reader.onerror = () => setRestoreMsg(t("Δεν διαβάστηκε το αρχείο.", "Could not read the file."));
     reader.onload = () => {
       try {
         const payload = JSON.parse(String(reader.result).replace(/^\uFEFF/, ""));
@@ -2902,7 +3094,7 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         setRestoreReview(reviewEntries(ctx.vocab, parseImport(String(reader.result)).vocab));
         setRestoreMsg("");
       } catch (err) {
-        setRestoreMsg(err.message || "Το αρχείο δεν είναι έγκυρο αντίγραφο ασφαλείας.");
+        setRestoreMsg(err.message || t("Το αρχείο δεν είναι έγκυρο αντίγραφο ασφαλείας.", "The file is not a valid backup."));
       }
     };
     reader.readAsText(f, "UTF-8");
@@ -2915,12 +3107,16 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
     <div style={{ padding: "4px 20px 30px" }}>
       <TopBar
         title="Fortschritt"
-        subtitle={isB2View ? `Δυναμική πρόοδος μόνο για B2 (${b2Vocab.length} λέξεις)` : "Deine Werkstatt-Statistik"}
+        subtitle={
+          isB2View
+            ? t(`Δυναμική πρόοδος μόνο για B2 (${b2Vocab.length} λέξεις)`, `Dynamic B2-only progress (${b2Vocab.length} words)`)
+            : t("Deine Werkstatt-Statistik", "Your workshop statistics")
+        }
       />
 
       <div
         role="group"
-        aria-label="Εύρος στατιστικών προόδου"
+        aria-label={t("Εύρος στατιστικών προόδου", "Progress statistics scope")}
         style={{
           display: "flex",
           gap: 6,
@@ -2932,8 +3128,8 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         }}
       >
         {[
-          { key: "all", label: "Όλα τα επίπεδα", count: vocab.length },
-          { key: "b2", label: "Μόνο B2", count: b2Vocab.length },
+          { key: "all", label: t("Όλα τα επίπεδα", "All levels"), count: vocab.length },
+          { key: "b2", label: t("Μόνο B2", "B2 only"), count: b2Vocab.length },
         ].map((opt) => {
           const active = statsScope === opt.key;
           return (
@@ -2993,7 +3189,7 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
               <div className="ww-tag-hole" />
               <Flame size={18} color="#CB9146" />
               <div className="ww-display" style={{ fontSize: 24, fontWeight: 700, marginTop: 6 }}>{meta.streak || 0}</div>
-              <div style={{ fontSize: 11.5, color: "#8B8680" }}>Tage Serie</div>
+              <div style={{ fontSize: 11.5, color: "#8B8680" }}>{t("Tage Serie", "Day streak")}</div>
             </div>
             <div className="ww-tag-card" style={{ padding: "16px" }}>
               <div className="ww-tag-hole" />
@@ -3010,21 +3206,23 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                 {accuracy != null ? `${accuracy}%` : "—"}
               </div>
               <div style={{ fontSize: 11.5, color: "#8B8680" }}>
-                Συνολική ακρίβεια · Ενεργή ανάκλ.: {activeRecallAccuracy != null ? `${activeRecallAccuracy}%` : "—"}
+                {t("Συνολική ακρίβεια · Ενεργή ανάκλ.:", "Overall accuracy · Active recall:")} {activeRecallAccuracy != null ? `${activeRecallAccuracy}%` : "—"}
               </div>
             </div>
             <div className="ww-tag-card" style={{ padding: "16px" }}>
               <div className="ww-tag-hole" />
               <Sparkles size={18} color="#8B7BC7" />
-              <div className="ww-display" style={{ fontSize: 17, fontWeight: 700, marginTop: 6 }}>{formatDuration(timeToday)}</div>
-              <div style={{ fontSize: 11.5, color: "#8B8680" }}>Χρόνος σήμερα</div>
+              <div className="ww-display" style={{ fontSize: 17, fontWeight: 700, marginTop: 6 }}>{formatDuration(timeToday, lang)}</div>
+              <div style={{ fontSize: 11.5, color: "#8B8680" }}>{t("Χρόνος σήμερα", "Time today")}</div>
             </div>
           </div>
         </>
       )}
 
       <div style={sectionTitle}>
-        {isB2View ? "Learning Rate B2 · Τελευταίες 30 ημέρες" : "Learning Rate · Τελευταίες 30 ημέρες"}
+        {isB2View
+          ? t("Learning Rate B2 · Τελευταίες 30 ημέρες", "Learning Rate B2 · Last 30 days")
+          : t("Learning Rate · Τελευταίες 30 ημέρες", "Learning Rate · Last 30 days")}
       </div>
       <div className="ww-tag-card" style={{ padding: "16px 14px 14px" }}>
         <div className="ww-tag-hole" />
@@ -3034,21 +3232,28 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
               <span className="ww-display ww-mono" style={{ fontSize: 26, fontWeight: 700, color: "#211F1C", fontVariantNumeric: "tabular-nums" }}>
                 {learningRate.ratePerDay.toFixed(2)}
               </span>
-              <span style={{ fontSize: 12.5, color: "#8B8680" }}>λέξεις / ημέρα</span>
+              <span style={{ fontSize: 12.5, color: "#8B8680" }}>{t("λέξεις / ημέρα", "words / day")}</span>
             </div>
             <div style={{ fontSize: 11.5, color: "#8B8680", marginTop: 2 }}>
-              {learningRate.totalWords} {learningRate.totalWords === 1 ? "νέα λέξη" : "νέες λέξεις"} σε 30 ημ. · {learningRate.activeDays} {learningRate.activeDays === 1 ? "ενεργή ημέρα" : "ενεργές ημέρες"}
+              {learningRate.totalWords}{" "}
+              {learningRate.totalWords === 1 ? t("νέα λέξη", "new word") : t("νέες λέξεις", "new words")}{" "}
+              {t("σε 30 ημ.", "in 30d")} · {learningRate.activeDays}{" "}
+              {learningRate.activeDays === 1 ? t("ενεργή ημέρα", "active day") : t("ενεργές ημέρες", "active days")}
             </div>
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 600, color: learningTrendDelta > 0 ? "#3F8C5F" : learningTrendDelta < 0 ? "#CB9146" : "#8B8680", fontVariantNumeric: "tabular-nums" }}>
             {learningTrendDelta > 0 ? <TrendingUp size={14} /> : learningTrendDelta < 0 ? <TrendingDown size={14} /> : <Minus size={14} />}
             <span>
-              {learningTrendDelta > 0 ? `+${learningTrendDelta} vs προηγ. 7 ημ.` : learningTrendDelta < 0 ? `${learningTrendDelta} vs προηγ. 7 ημ.` : `${learningRate.last7dCount} τις τελευταίες 7 ημ.`}
+              {learningTrendDelta > 0
+                ? t(`+${learningTrendDelta} vs προηγ. 7 ημ.`, `+${learningTrendDelta} vs prev 7d`)
+                : learningTrendDelta < 0
+                  ? t(`${learningTrendDelta} vs προηγ. 7 ημ.`, `${learningTrendDelta} vs prev 7d`)
+                  : t(`${learningRate.last7dCount} τις τελευταίες 7 ημ.`, `${learningRate.last7dCount} in last 7d`)}
             </span>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 4, padding: 3, background: "#FAF7F0", border: "1px solid #ECE4D3", borderRadius: 10, marginTop: 12 }} role="group" aria-label="Κριτήριο Learning Rate">
+        <div style={{ display: "flex", gap: 4, padding: 3, background: "#FAF7F0", border: "1px solid #ECE4D3", borderRadius: 10, marginTop: 12 }} role="group" aria-label={t("Κριτήριο Learning Rate", "Learning Rate criterion")}>
           {["assimilated", "mastered", "started"].map((key) => {
             const active = learningCriterion === key;
             return (
@@ -3079,32 +3284,43 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         </div>
         {learningRate.ratePerDay > 0 && (
           <div style={{ fontSize: 11, color: "#4A453D", marginTop: 8, paddingTop: 8, borderTop: "1px solid #ECE4D3", fontVariantNumeric: "tabular-nums" }}>
-            Μ.ό. ενεργών ημερών: <strong>{learningRate.activeDayRate.toFixed(2)}</strong> λέξεις/ημέρα
+            {t("Μ.ό. ενεργών ημερών:", "Active-day avg:")} <strong>{learningRate.activeDayRate.toFixed(2)}</strong> {t("λέξεις/ημέρα", "words/day")}
             {learningRate.estimatedDaysRemaining != null
-              ? ` · Εκτίμηση: ~${learningRate.estimatedDaysRemaining} ημ. για τις υπόλοιπες ${learningRate.remainingWords}`
+              ? t(
+                  ` · Εκτίμηση: ~${learningRate.estimatedDaysRemaining} ημ. για τις υπόλοιπες ${learningRate.remainingWords}`,
+                  ` · Est.: ~${learningRate.estimatedDaysRemaining}d for remaining ${learningRate.remainingWords}`,
+                )
               : ""}
           </div>
         )}
       </div>
 
       <div style={sectionTitle}>
-        {isB2View ? "Χρονογραμμή εκμάθησης B2 · Τελευταίες 30 ημέρες" : "Χρονογραμμή εκμάθησης · Τελευταίες 30 ημέρες"}
+        {isB2View
+          ? t("Χρονογραμμή εκμάθησης B2 · Τελευταίες 30 ημέρες", "B2 learning timeline · Last 30 days")
+          : t("Χρονογραμμή εκμάθησης · Τελευταίες 30 ημέρες", "Learning timeline · Last 30 days")}
       </div>
       <div className="ww-tag-card" style={{ padding: "16px 14px 14px" }}>
         <div className="ww-tag-hole" />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: "#211F1C" }}>
-              {learningRate.totalWords} {learningCriterion === "mastered" ? "κατακτημένες" : learningCriterion === "started" ? "νέες σε μελέτη" : "αφομοιωμένες"} {isB2View ? "B2 λέξεις" : "λέξεις"}
+              {learningRate.totalWords}{" "}
+              {learningCriterion === "mastered"
+                ? t("κατακτημένες", "mastered")
+                : learningCriterion === "started"
+                  ? t("νέες σε μελέτη", "newly started")
+                  : t("αφομοιωμένες", "assimilated")}{" "}
+              {isB2View ? t("B2 λέξεις", "B2 words") : t("λέξεις", "words")}
             </div>
             <div style={{ fontSize: 11, color: "#8B8680", marginTop: 1 }}>
-              Ημερήσια πρόοδος & σωρευτική πορεία 30 ημερών
+              {t("Ημερήσια πρόοδος & σωρευτική πορεία 30 ημερών", "Daily progress & 30-day cumulative curve")}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
               type="button"
-              aria-label="Προηγούμενη ημέρα"
+              aria-label={t("Προηγούμενη ημέρα", "Previous day")}
               disabled={activeLearningIdx <= 0}
               onClick={() => {
                 const prev = learningRate.days[activeLearningIdx - 1];
@@ -3128,11 +3344,11 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                 fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
               }}
             >
-              Σήμερα
+              {t("Σήμερα", "Today")}
             </button>
             <button
               type="button"
-              aria-label="Επόμενη ημέρα"
+              aria-label={t("Επόμενη ημέρα", "Next day")}
               disabled={activeLearningIdx >= learningRate.days.length - 1}
               onClick={() => {
                 const next = learningRate.days[activeLearningIdx + 1];
@@ -3176,10 +3392,10 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                   if (!pt) return null;
                   return (
                     <div style={{ background: "#FFFFFF", border: "1px solid #E8E0CE", borderRadius: 10, padding: "8px 10px", fontSize: 12, boxShadow: "0 4px 12px rgba(33,31,28,0.08)", maxWidth: 220 }}>
-                      <div style={{ fontWeight: 600, color: "#211F1C" }}>{pt.day}{pt.isToday ? " · Σήμερα" : ""}</div>
+                      <div style={{ fontWeight: 600, color: "#211F1C" }}>{pt.day}{pt.isToday ? t(" · Σήμερα", " · Today") : ""}</div>
                       <div style={{ color: learningAccent, fontWeight: 700, marginTop: 2 }}>
-                        +{pt.count} {pt.count === 1 ? "λέξη" : "λέξεις"}
-                        <span style={{ color: "#8B8680", fontWeight: 500, fontSize: 11 }}> · σύνολο {pt.cumulative}</span>
+                        +{pt.count} {pt.count === 1 ? t("λέξη", "word") : t("λέξεις", "words")}
+                        <span style={{ color: "#8B8680", fontWeight: 500, fontSize: 11 }}> · {t("σύνολο", "total")} {pt.cumulative}</span>
                       </div>
                       {pt.words.length > 0 && (
                         <div style={{ color: "#4A453D", fontSize: 11, marginTop: 3, lineHeight: 1.35 }}>
@@ -3218,21 +3434,22 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
 
         <div
           role="group"
-          aria-label="Επιλογή ημέρας τελευταίων 30 ημερών"
+          aria-label={t("Επιλογή ημέρας τελευταίων 30 ημερών", "Select day in last 30 days")}
           style={{ display: "grid", gridTemplateColumns: "repeat(10, minmax(0, 1fr))", gap: 4, marginTop: 10 }}
         >
           {learningRate.days.map((pt) => {
             const isSelected = activeLearningPoint?.date === pt.date;
             const hasActivity = pt.count > 0;
             const dayNum = pt.date.slice(8, 10);
+            const dayWordLabel = pt.count === 1 ? t("λέξη", "word") : t("λέξεις", "words");
             return (
               <button
                 key={pt.date}
                 type="button"
                 onClick={() => setSelectedLearningDate(pt.date)}
-                aria-label={`${pt.day}: ${pt.count} ${pt.count === 1 ? "λέξη" : "λέξεις"}`}
+                aria-label={`${pt.day}: ${pt.count} ${dayWordLabel}`}
                 aria-pressed={isSelected}
-                title={`${pt.day}: ${pt.count} ${pt.count === 1 ? "λέξη" : "λέξεις"}`}
+                title={`${pt.day}: ${pt.count} ${dayWordLabel}`}
                 style={{
                   padding: "5px 2px",
                   borderRadius: 7,
@@ -3262,45 +3479,57 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #ECE4D3" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12.5, fontWeight: 700, color: "#211F1C" }}>
-              {activeLearningPoint?.day}{activeLearningPoint?.isToday ? " · Σήμερα" : ""}
+              {activeLearningPoint?.day}{activeLearningPoint?.isToday ? t(" · Σήμερα", " · Today") : ""}
             </span>
             <span className="ww-mono" style={{ fontSize: 12, color: activeLearningPoint?.count ? learningAccent : "#8B8680", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-              {activeLearningPoint?.count || 0} {activeLearningPoint?.count === 1 ? "λέξη" : "λέξεις"}
+              {activeLearningPoint?.count || 0} {activeLearningPoint?.count === 1 ? t("λέξη", "word") : t("λέξεις", "words")}
             </span>
           </div>
 
           {activeLearningPoint?.entries?.length > 0 ? (
             <div style={{ marginTop: 8 }}>
-              {activeLearningPoint.entries.map((entry, idx) => (
-                <div
-                  key={entry.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    gap: 10,
-                    padding: "6px 0",
-                    borderBottom: idx < activeLearningPoint.entries.length - 1 ? "1px solid #F1EBDF" : "none",
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#211F1C" }}>{entry.word}</span>
-                    {entry.greek && (
-                      <span style={{ fontSize: 11.5, color: "#4A453D", marginLeft: 8 }}>{entry.greek}</span>
-                    )}
+              {activeLearningPoint.entries.map((entry, idx) => {
+                const matchedWord = statsVocabById.get(entry.id);
+                const entryMeaning = matchedWord
+                  ? wordPrimaryMeanings(matchedWord, lang).slice(0, 2).join(", ")
+                  : entry.greek;
+                return (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      gap: 10,
+                      padding: "6px 0",
+                      borderBottom: idx < activeLearningPoint.entries.length - 1 ? "1px solid #F1EBDF" : "none",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#211F1C" }}>{entry.word}</span>
+                      {entryMeaning && (
+                        <span style={{ fontSize: 11.5, color: "#4A453D", marginLeft: 8 }}>{entryMeaning}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#8B8680", whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {[entry.cefr, entry.level].filter(Boolean).join(" · ")}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10.5, color: "#8B8680", whiteSpace: "nowrap", flexShrink: 0 }}>
-                    {[entry.cefr, entry.level].filter(Boolean).join(" · ")}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11.5, color: "#8B8680", lineHeight: 1.45 }}>
                 {learningRate.totalWords === 0 && learningCriterion === "mastered"
-                  ? "Καμία πλήρης κατάκτηση τις τελευταίες 30 ημέρες (απαιτεί ελέγχους 1/3/7 ημερών)."
-                  : `Καμία ${learningCriterion === "mastered" ? "κατακτημένη" : learningCriterion === "started" ? "νέα" : "αφομοιωμένη"} λέξη στις ${activeLearningPoint?.day}.`}
+                  ? t(
+                      "Καμία πλήρης κατάκτηση τις τελευταίες 30 ημέρες (απαιτεί ελέγχους 1/3/7 ημερών).",
+                      "No full mastery in the last 30 days (requires 1/3/7-day checks).",
+                    )
+                  : t(
+                      `Καμία ${learningCriterion === "mastered" ? "κατακτημένη" : learningCriterion === "started" ? "νέα" : "αφομοιωμένη"} λέξη στις ${activeLearningPoint?.day}.`,
+                      `No ${learningCriterion === "mastered" ? "mastered" : learningCriterion === "started" ? "started" : "assimilated"} words on ${activeLearningPoint?.day}.`,
+                    )}
               </span>
               {latestActiveLearningPoint && latestActiveLearningPoint.date !== activeLearningPoint?.date && (
                 <button
@@ -3308,7 +3537,7 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                   onClick={() => setSelectedLearningDate(latestActiveLearningPoint.date)}
                   style={{ fontSize: 11.5, fontWeight: 600, color: learningAccent, background: "transparent", border: "none", padding: "3px 0", textDecoration: "underline" }}
                 >
-                  Τελευταία ενεργή ({latestActiveLearningPoint.day})
+                  {t(`Τελευταία ενεργή (${latestActiveLearningPoint.day})`, `Latest active (${latestActiveLearningPoint.day})`)}
                 </button>
               )}
               {learningRate.totalWords === 0 && learningCriterion === "mastered" && (
@@ -3317,7 +3546,7 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                   onClick={() => { setLearningCriterion("assimilated"); setSelectedLearningDate(null); }}
                   style={{ fontSize: 11.5, fontWeight: 600, color: "#CB9146", background: "transparent", border: "none", padding: "3px 0", textDecoration: "underline" }}
                 >
-                  Δες «Αφομοίωση»
+                  {t("Δες «Αφομοίωση»", 'View "Assimilated"')}
                 </button>
               )}
             </div>
@@ -3327,16 +3556,16 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
 
       {!isB2View && (
         <>
-      <div style={sectionTitle}>Χρονογραμμή XP · Τελευταίες 7 ημέρες</div>
+      <div style={sectionTitle}>{t("Χρονογραμμή XP · Τελευταίες 7 ημέρες", "XP Timeline · Last 7 days")}</div>
       <div className="ww-tag-card" style={{ padding: "16px 14px 12px" }}>
         <div className="ww-tag-hole" />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
           <div>
             <span className="ww-display" style={{ fontSize: 22, fontWeight: 700, color: "#211F1C" }}>{weeklyXpTotal} XP</span>
-            <span style={{ fontSize: 12, color: "#8B8680", marginLeft: 8 }}>την τελευταία εβδομάδα</span>
+            <span style={{ fontSize: 12, color: "#8B8680", marginLeft: 8 }}>{t("την τελευταία εβδομάδα", "in the last week")}</span>
           </div>
           <span className="ww-mono" style={{ fontSize: 11.5, color: "#CB9146", fontWeight: 600 }}>
-            Σήμερα: +{todayXp} XP
+            {t("Σήμερα:", "Today:")} +{todayXp} XP
           </span>
         </div>
         <div style={{ width: "100%", height: 150 }}>
@@ -3365,9 +3594,9 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                   if (!pt) return null;
                   return (
                     <div style={{ background: "#FFFFFF", border: "1px solid #E8E0CE", borderRadius: 10, padding: "8px 10px", fontSize: 12, boxShadow: "0 4px 12px rgba(33,31,28,0.08)" }}>
-                      <div style={{ fontWeight: 600, color: "#211F1C" }}>{pt.day}{pt.isToday ? " · Σήμερα" : ""}</div>
+                      <div style={{ fontWeight: 600, color: "#211F1C" }}>{pt.day}{pt.isToday ? t(" · Σήμερα", " · Today") : ""}</div>
                       <div style={{ color: "#CB9146", fontWeight: 700, marginTop: 2 }}>+{pt.xp} XP</div>
-                      <div style={{ color: "#8B8680", fontSize: 11 }}>{pt.sessions} {pt.sessions === 1 ? "συνεδρία" : "συνεδρίες"}</div>
+                      <div style={{ color: "#8B8680", fontSize: 11 }}>{pt.sessions} {pt.sessions === 1 ? t("συνεδρία", "session") : t("συνεδρίες", "sessions")}</div>
                     </div>
                   );
                 }}
@@ -3399,7 +3628,7 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                   color: active ? "#211F1C" : "#8B8680", fontWeight: active ? 700 : 500,
                 }}
               >
-                <div>{pt.isToday ? "Σήμ." : pt.day}</div>
+                <div>{pt.isToday ? t("Σήμ.", "Today") : pt.day}</div>
                 <div className="ww-mono" style={{ fontSize: 10, color: pt.xp > 0 ? "#B07A2A" : "#A79F8E" }}>{pt.xp}</div>
               </button>
             );
@@ -3407,20 +3636,20 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         </div>
         {activeXpPoint && (
           <div style={{ marginTop: 8, fontSize: 12, color: "#4A453D", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid #ECE4D3" }}>
-            <span>{activeXpPoint.day}{activeXpPoint.isToday ? " (Σήμερα)" : ""}</span>
+            <span>{activeXpPoint.day}{activeXpPoint.isToday ? t(" (Σήμερα)", " (Today)") : ""}</span>
             <span>
-              <strong style={{ color: "#CB9146" }}>+{activeXpPoint.xp} XP</strong> · {activeXpPoint.sessions} {activeXpPoint.sessions === 1 ? "συνεδρία" : "συνεδρίες"}
+              <strong style={{ color: "#CB9146" }}>+{activeXpPoint.xp} XP</strong> · {activeXpPoint.sessions} {activeXpPoint.sessions === 1 ? t("συνεδρία", "session") : t("συνεδρίες", "sessions")}
             </span>
           </div>
         )}
       </div>
 
-      <div style={sectionTitle}>Letzte Runden</div>
+      <div style={sectionTitle}>{t("Letzte Runden", "Recent rounds")}</div>
       <div className="ww-tag-card" style={{ padding: "16px 12px 8px", height: 160 }}>
         <div className="ww-tag-hole" />
         {chartData.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#A79F8E", fontSize: 12.5 }}>
-            Noch keine Runden gespielt
+            {t("Noch keine Runden gespielt", "No rounds played yet")}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -3435,17 +3664,17 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         )}
       </div>
 
-      <div style={sectionTitle}>Wortschatz-Verteilung</div>
+      <div style={sectionTitle}>{t("Wortschatz-Verteilung", "Vocabulary distribution")}</div>
       <div className="ww-tag-card" style={{ padding: "16px" }}>
         <div className="ww-tag-hole" />
         {[
-          { label: "Retained (Διατήρηση)", value: retained, color: "#3F8C5F" },
-          { label: "Mastered (Κατάκτηση)", value: provisionallyMastered, color: "#6FA96B" },
-          { label: "Consolidating (Αφομοίωση)", value: consolidating, color: "#CB9146" },
-          { label: "Learning (Εκμάθηση)", value: learning, color: "#4FA091" },
-          { label: "Previously Known (Γνωρίζω ήδη)", value: previouslyKnown, color: "#2D6E62" },
-          { label: "Γραφή Recall χωρίς βοήθεια", value: typedMastered, color: "#8B7BC7" },
-          { label: "Fällig (Οφειλόμενες)", value: due, color: "#E0584A" },
+          { label: t("Retained (Διατήρηση)", "Retained"), value: retained, color: "#3F8C5F" },
+          { label: t("Mastered (Κατάκτηση)", "Mastered"), value: provisionallyMastered, color: "#6FA96B" },
+          { label: t("Consolidating (Αφομοίωση)", "Consolidating"), value: consolidating, color: "#CB9146" },
+          { label: t("Learning (Εκμάθηση)", "Learning"), value: learning, color: "#4FA091" },
+          { label: t("Previously Known (Γνωρίζω ήδη)", "Previously Known"), value: previouslyKnown, color: "#2D6E62" },
+          { label: t("Γραφή Recall χωρίς βοήθεια", "Typed recall without hint"), value: typedMastered, color: "#8B7BC7" },
+          { label: t("Fällig (Οφειλόμενες)", "Due for review"), value: due, color: "#E0584A" },
         ].map((row) => (
           <div key={row.label} style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
@@ -3461,30 +3690,30 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
 
       {testLogs.length > 0 && (
         <>
-          <div style={sectionTitle}>Εβδομαδιαία τεστ</div>
+          <div style={sectionTitle}>{t("Εβδομαδιαία τεστ", "Weekly tests")}</div>
           <div className="ww-tag-card" style={{ padding: "14px 16px" }}>
             <div className="ww-tag-hole" />
-            {testLogs.slice(-5).reverse().map((t, i) => (
+            {testLogs.slice(-5).reverse().map((tl, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "5px 0", borderBottom: i < Math.min(testLogs.length, 5) - 1 ? "1px solid #ECE4D3" : "none" }}>
                 <span style={{ color: "#8B8680", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  {t.date}
-                  {t.scope === "b2" && (
+                  {tl.date}
+                  {tl.scope === "b2" && (
                     <span className="ww-mono" style={{ fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(203,145,70,0.16)", color: "#9C6924" }}>
                       B2
                     </span>
                   )}
                 </span>
-                <span><strong>{Math.round(((t.exact + t.near) / t.total) * 100)}%</strong> <span style={{ color: "#A79F8E" }}>({t.exact}+{t.near}/{t.total}{t.synonym ? ` · ${t.synonym} συν.` : ""})</span></span>
+                <span><strong>{Math.round(((tl.exact + tl.near) / tl.total) * 100)}%</strong> <span style={{ color: "#A79F8E" }}>({tl.exact}+{tl.near}/{tl.total}{tl.synonym ? t(` · ${tl.synonym} συν.`, ` · ${tl.synonym} syn.`) : ""})</span></span>
               </div>
             ))}
           </div>
         </>
       )}
 
-      <div style={sectionTitle}>Πρόοδος ανά επίπεδο</div>
+      <div style={sectionTitle}>{t("Πρόοδος ανά επίπεδο", "Progress by CEFR level")}</div>
       <div className="ww-tag-card" style={{ padding: "16px" }}>
         <div className="ww-tag-hole" />
-        {cefrBreakdown.length === 0 && <div style={{ fontSize: 12.5, color: "#A79F8E" }}>Δεν υπάρχουν λέξεις με επίπεδο ακόμα.</div>}
+        {cefrBreakdown.length === 0 && <div style={{ fontSize: 12.5, color: "#A79F8E" }}>{t("Δεν υπάρχουν λέξεις με επίπεδο ακόμα.", "No words with CEFR levels yet.")}</div>}
         {cefrBreakdown.map((row) => {
           const pct = row.total ? Math.round((row.mastered / row.total) * 100) : 0;
           const workPct = row.total ? Math.round((row.inWork / row.total) * 100) : 0;
@@ -3507,12 +3736,12 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                         fontWeight: 700,
                       }}
                     >
-                      Αναλυτικά B2 →
+                      {t("Αναλυτικά B2 →", "B2 details →")}
                     </button>
                   )}
                 </span>
                 <span className="ww-mono" style={{ color: "#CB9146" }}>
-                  {pct}%{row.inWork > 0 ? ` (+${row.inWork} σε εξέλιξη)` : ""}
+                  {pct}%{row.inWork > 0 ? t(` (+${row.inWork} σε εξέλιξη)`, ` (+${row.inWork} in progress)`) : ""}
                 </span>
               </div>
               <div style={{ height: 6, background: "#ECE4D3", borderRadius: 999, overflow: "hidden", display: "flex" }}>
@@ -3520,19 +3749,21 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
                 <div style={{ height: "100%", width: `${Math.min(100 - pct, workPct)}%`, background: "#CB9146", opacity: 0.7 }} />
               </div>
               <div style={{ fontSize: 11, color: "#8B8680", marginTop: 4 }}>
-                {row.mastered} γνωστές{row.inWork > 0 ? ` · ${row.inWork} σε εξέλιξη` : ""} · {row.total - row.mastered - row.inWork} απομένουν · {row.total} σύνολο
+                {row.mastered} {t("γνωστές", "mastered")}
+                {row.inWork > 0 ? t(` · ${row.inWork} σε εξέλιξη`, ` · ${row.inWork} in progress`) : ""} ·{" "}
+                {row.total - row.mastered - row.inWork} {t("απομένουν", "remaining")} · {row.total} {t("σύνολο", "total")}
               </div>
             </div>
           );
         })}
       </div>
 
-      <div style={sectionTitle}>Σύνολο χρόνου εξάσκησης</div>
+      <div style={sectionTitle}>{t("Σύνολο χρόνου εξάσκησης", "Total practice time")}</div>
       <div className="ww-tag-card" style={{ padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div className="ww-tag-hole" />
         <div>
-          <div className="ww-display" style={{ fontSize: 22, fontWeight: 700 }}>{formatDuration(totalTime)}</div>
-          <div style={{ fontSize: 11.5, color: "#8B8680", marginTop: 2 }}>από τότε που ξεκίνησες</div>
+          <div className="ww-display" style={{ fontSize: 22, fontWeight: 700 }}>{formatDuration(totalTime, lang)}</div>
+          <div style={{ fontSize: 11.5, color: "#8B8680", marginTop: 2 }}>{t("από τότε που ξεκίνησες", "since you started")}</div>
         </div>
         <Trophy size={26} color="#CB9146" />
       </div>
@@ -3543,28 +3774,41 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
         onClick={() => exportBackup(false)}
         style={{ marginTop: 24, width: "100%", padding: "14px 0", borderRadius: 12, background: "#FFFFFF", border: "1px solid #E8E0CE", color: "#211F1C", fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
       >
-        <RotateCcw size={15} /> Εξαγωγή αντιγράφου ασφαλείας ({(allVocab || vocab).length} λέξεις)
+        <RotateCcw size={15} /> {t(`Εξαγωγή αντιγράφου ασφαλείας (${(allVocab || vocab).length} λέξεις)`, `Export full backup (${(allVocab || vocab).length} words)`)}
       </button>
       <button
         onClick={() => fileRef.current && fileRef.current.click()}
         style={{ marginTop: 10, width: "100%", padding: "14px 0", borderRadius: 12, background: "#FFFFFF", border: "1px solid #E8E0CE", color: "#211F1C", fontWeight: 600, fontSize: 13.5 }}
       >
-        Επαναφορά / συγχώνευση από αντίγραφο
+        {t("Επαναφορά / συγχώνευση από αντίγραφο", "Restore / merge from backup")}
       </button>
-      <Button variant="outline" className="mt-3 w-full" onClick={() => exportBackup(true)}>Εξαγωγή μόνο λεξιλογίου</Button>
+      <Button variant="outline" className="mt-3 w-full" onClick={() => exportBackup(true)}>
+        {t("Εξαγωγή μόνο λεξιλογίου", "Export vocabulary only")}
+      </Button>
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <a href="/audit/quality_report.md" download>Αναφορά ελέγχου</a>
-        <a href="/audit/import_manifest.json" download>Πηγές</a>
-        <a href="/audit/wortwerk_master.json" download>Ενοποιημένο λεξιλόγιο</a>
+        <a href="/audit/quality_report.md" download>{t("Αναφορά ελέγχου", "Audit report")}</a>
+        <a href="/audit/import_manifest.json" download>{t("Πηγές", "Sources")}</a>
+        <a href="/audit/wortwerk_master.json" download>{t("Ενοποιημένο λεξιλόγιο", "Unified vocabulary")}</a>
       </div>
       <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFile} style={{ display: "none" }} />
       {restoreReview && <ImportReview rows={restoreReview} onChange={setRestoreReview} onCancel={() => setRestoreReview(null)} onConfirm={() => {
-        try { const r = ctx.restoreBackup(restorePayload, restoreReview); setRestoreMsg(`✓ ${r.added} νέες · ${r.updated} συγχωνεύσεις · ${r.skipped || 0} παραλείψεις`); setRestoreReview(null); }
-        catch (err) { setRestoreMsg(err.message); }
+        try {
+          const r = ctx.restoreBackup(restorePayload, restoreReview);
+          setRestoreMsg(
+            t(
+              `✓ ${r.added} νέες · ${r.updated} συγχωνεύσεις · ${r.skipped || 0} παραλείψεις`,
+              `✓ ${r.added} new · ${r.updated} merged · ${r.skipped || 0} skipped`,
+            ),
+          );
+          setRestoreReview(null);
+        } catch (err) { setRestoreMsg(err.message); }
       }} />}
       {restoreMsg && <div className="ww-pop" style={{ marginTop: 10, fontSize: 12.5, color: restoreMsg.indexOf("✓") === 0 ? "#3F8C5F" : "#E0584A", lineHeight: 1.5 }}>{restoreMsg}</div>}
       <div style={{ fontSize: 11.5, color: "#A79F8E", marginTop: 8, lineHeight: 1.5 }}>
-        Η επαναφορά δεν σβήνει τίποτα: προσθέτει ό,τι λείπει και κρατά την καλύτερη πρόοδο κάθε λέξης.
+        {t(
+          "Η επαναφορά δεν σβήνει τίποτα: προσθέτει ό,τι λείπει και κρατά την καλύτερη πρόοδο κάθε λέξης.",
+          "Restore never deletes anything: it adds missing entries and keeps the best progress for each word.",
+        )}
       </div>
     </div>
   );
@@ -3572,7 +3816,8 @@ function StatsScreen({ vocab, meta, allVocab, onOpenB2Practice, initialScope = "
 
 /* ============================== APP ROOT ============================== */
 
-export default function WortwerkApp() {
+function WortwerkAppContent() {
+  const { lang, setLang, t } = useAppLang();
   const [activeModule, setActiveModule] = useState("woerter");
   const [tab, setTab] = useState("home");
   const [vocab, setVocab] = useState(null);
@@ -3739,50 +3984,97 @@ export default function WortwerkApp() {
             position: "sticky", top: 0, zIndex: 25,
             background: "rgba(253,250,243,0.94)", backdropFilter: "blur(10px)",
             borderBottom: "1px solid #ECE4D3",
-            padding: "8px 16px",
+            padding: "8px 12px",
           }}
         >
-          <nav
-            aria-label="Ενότητες WortWerk"
+          <div
             style={{
               maxWidth: 768, margin: "0 auto",
-              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
-              background: "#ECE4D3", padding: 3, borderRadius: 999,
+              display: "flex", alignItems: "center", gap: 8,
             }}
           >
-            <button
-              type="button"
-              aria-pressed={activeModule === "woerter"}
-              onClick={() => setActiveModule("woerter")}
+            <nav
+              aria-label={t("Ενότητες WortWerk", "WortWerk modules")}
               style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                padding: "8px 12px", borderRadius: 999, border: "none",
-                fontSize: 13, fontWeight: 600,
-                background: activeModule === "woerter" ? "#211F1C" : "transparent",
-                color: activeModule === "woerter" ? "#F5F0E6" : "#5E584F",
-                transition: "background 150ms ease, color 150ms ease",
+                flex: 1, minWidth: 0,
+                display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4,
+                background: "#ECE4D3", padding: 3, borderRadius: 999,
               }}
             >
-              <BookOpen size={15} />
-              <span>Wörter</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={activeModule === "saetze"}
-              onClick={() => setActiveModule("saetze")}
+              <button
+                type="button"
+                aria-pressed={activeModule === "woerter"}
+                onClick={() => setActiveModule("woerter")}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "8px 10px", borderRadius: 999, border: "none",
+                  fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap",
+                  background: activeModule === "woerter" ? "#211F1C" : "transparent",
+                  color: activeModule === "woerter" ? "#F5F0E6" : "#5E584F",
+                  transition: "background 150ms ease, color 150ms ease",
+                }}
+              >
+                <BookOpen size={14} />
+                <span>Wörter</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeModule === "saetze"}
+                onClick={() => setActiveModule("saetze")}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "8px 10px", borderRadius: 999, border: "none",
+                  fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap",
+                  background: activeModule === "saetze" ? "#211F1C" : "transparent",
+                  color: activeModule === "saetze" ? "#F5F0E6" : "#5E584F",
+                  transition: "background 150ms ease, color 150ms ease",
+                }}
+              >
+                <MessageSquareQuote size={14} />
+                <span>Sätze &amp; Ausdrücke</span>
+              </button>
+            </nav>
+
+            <div
+              role="group"
+              aria-label={t("Γλώσσα εφαρμογής", "App language")}
               style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                padding: "8px 12px", borderRadius: 999, border: "none",
-                fontSize: 13, fontWeight: 600,
-                background: activeModule === "saetze" ? "#211F1C" : "transparent",
-                color: activeModule === "saetze" ? "#F5F0E6" : "#5E584F",
-                transition: "background 150ms ease, color 150ms ease",
+                display: "inline-flex", alignItems: "center", flexShrink: 0,
+                background: "#ECE4D3", padding: 3, borderRadius: 999, gap: 2,
               }}
             >
-              <MessageSquareQuote size={15} />
-              <span>Sätze &amp; Ausdrücke</span>
-            </button>
-          </nav>
+              <button
+                type="button"
+                aria-pressed={lang === "el"}
+                onClick={() => setLang("el")}
+                className="ww-mono"
+                style={{
+                  padding: "6px 9px", borderRadius: 999, border: "none",
+                  fontSize: 11, fontWeight: 700,
+                  background: lang === "el" ? "#211F1C" : "transparent",
+                  color: lang === "el" ? "#F5F0E6" : "#5E584F",
+                  transition: "background 150ms ease, color 150ms ease",
+                }}
+              >
+                ΕΛ
+              </button>
+              <button
+                type="button"
+                aria-pressed={lang === "en"}
+                onClick={() => setLang("en")}
+                className="ww-mono"
+                style={{
+                  padding: "6px 9px", borderRadius: 999, border: "none",
+                  fontSize: 11, fontWeight: 700,
+                  background: lang === "en" ? "#211F1C" : "transparent",
+                  color: lang === "en" ? "#F5F0E6" : "#5E584F",
+                  transition: "background 150ms ease, color 150ms ease",
+                }}
+              >
+                EN
+              </button>
+            </div>
+          </div>
         </header>
 
         {activeModule === "saetze" ? (
@@ -3832,9 +4124,13 @@ export default function WortwerkApp() {
   );
 }
 
-
-
-
+export default function WortwerkApp() {
+  return (
+    <LanguageProvider>
+      <WortwerkAppContent />
+    </LanguageProvider>
+  );
+}
 
 if (typeof window !== "undefined" && !(window as any).storage) {
   (window as any).storage = {

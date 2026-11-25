@@ -12,6 +12,7 @@ import {
   type SentenceCefr,
   type SentenceImportReviewRow,
 } from "@/lib/sentences-data";
+import { useAppLang, sentencePrimaryMeaning } from "@/lib/i18n";
 
 const SAMPLE_JSON = JSON.stringify(
   [
@@ -31,11 +32,12 @@ const SAMPLE_JSON = JSON.stringify(
         {
           de: "Dein Vorschlag klingt gut – das macht absolut Sinn.",
           el: "Η πρότασή σου ακούγεται καλή – βγάζει απόλυτο νόημα.",
+          en: "Your suggestion sounds good – that makes complete sense.",
         },
       ],
       alternatives: ["Das ergibt Sinn."],
       synonyms: ["einleuchtend sein"],
-      memoryHook: "der Sinn = νόημα.",
+      memoryHook: "der Sinn = sense / meaning.",
       tags: ["Alltag", "Gespräch"],
     },
   ],
@@ -64,6 +66,7 @@ export default function SentenceAddView({
   onCancelEdit,
   onGoToList,
 }: Props) {
+  const { lang, isEn, t } = useAppLang();
   const [mode, setMode] = useState<"json" | "form">(editingEntry ? "form" : "json");
   const [jsonText, setJsonText] = useState("");
   const [reviewRows, setReviewRows] = useState<SentenceImportReviewRow[] | null>(null);
@@ -109,7 +112,7 @@ export default function SentenceAddView({
 
   function handleValidateJson() {
     setMessage(null);
-    const parsed = parseSentenceJsonInput(jsonText);
+    const parsed = parseSentenceJsonInput(jsonText, lang);
     if (!parsed.ok) {
       setReviewRows(null);
       setMessage({ ok: false, text: parsed.error });
@@ -137,14 +140,17 @@ export default function SentenceAddView({
     if (!reviewRows) return;
     const res = onImportRows(reviewRows);
     const parts: string[] = [];
-    if (res.added) parts.push(`${res.added} νέες προστέθηκαν`);
-    if (res.replaced) parts.push(`${res.replaced} ενημερώθηκαν`);
-    if (res.skipped) parts.push(`${res.skipped} διπλότυπες παραλείφθηκαν`);
+    if (res.added) parts.push(t(`${res.added} νέες προστέθηκαν`, `${res.added} new added`));
+    if (res.replaced) parts.push(t(`${res.replaced} ενημερώθηκαν`, `${res.replaced} updated`));
+    if (res.skipped)
+      parts.push(t(`${res.skipped} διπλότυπες παραλείφθηκαν`, `${res.skipped} duplicates skipped`));
     setReviewRows(null);
     setJsonText("");
     setMessage({
       ok: res.added + res.replaced > 0,
-      text: parts.length ? `✓ ${parts.join(" · ")}` : "Δεν επιλέχθηκε καμία καταχώριση.",
+      text: parts.length
+        ? `✓ ${parts.join(" · ")}`
+        : t("Δεν επιλέχθηκε καμία καταχώριση.", "No entries were selected."),
     });
   }
 
@@ -171,11 +177,23 @@ export default function SentenceAddView({
     setMessage(null);
     const trimmed = sentence.trim();
     if (!trimmed) {
-      setMessage({ ok: false, text: "Συμπλήρωσε τη γερμανική πρόταση ή έκφραση." });
+      setMessage({
+        ok: false,
+        text: t(
+          "Συμπλήρωσε τη γερμανική πρόταση ή έκφραση.",
+          "Enter the German sentence or expression.",
+        ),
+      });
       return;
     }
     if (!meaningEl.trim() && !meaningEn.trim()) {
-      setMessage({ ok: false, text: "Συμπλήρωσε τουλάχιστον ελληνική ή αγγλική σημασία." });
+      setMessage({
+        ok: false,
+        text: t(
+          "Συμπλήρωσε τουλάχιστον ελληνική ή αγγλική σημασία.",
+          "Enter at least a Greek or English meaning.",
+        ),
+      });
       return;
     }
 
@@ -226,7 +244,13 @@ export default function SentenceAddView({
     setMemoryHook("");
     setTags("");
     setExamplesText("");
-    setMessage({ ok: res.added > 0, text: `✓ Η πρόταση αποθηκεύτηκε (${res.added} νέα).` });
+    setMessage({
+      ok: res.added > 0,
+      text: t(
+        `✓ Η πρόταση αποθηκεύτηκε (${res.added} νέα).`,
+        `✓ Sentence saved (${res.added} new).`,
+      ),
+    });
   }
 
   const dupCount = reviewRows ? reviewRows.filter((r) => r.isDuplicate).length : 0;
@@ -237,12 +261,18 @@ export default function SentenceAddView({
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="ww-display text-[26px] font-semibold leading-tight text-[#211F1C]">
-            {editingEntry ? "Επεξεργασία πρότασης" : "Neue hinzufügen"}
+            {editingEntry ? t("Επεξεργασία πρότασης", "Edit sentence") : "Neue hinzufügen"}
           </h1>
           <p className="mt-0.5 text-[13px] text-[#8B8680]">
             {editingEntry
-              ? `Επεξεργασία ${editingEntry.id} · η πρόοδος εκμάθησης διατηρείται`
-              : "Εισαγωγή προτάσεων & εκφράσεων μέσω JSON ή φόρμας"}
+              ? t(
+                  `Επεξεργασία ${editingEntry.id} · η πρόοδος εκμάθησης διατηρείται`,
+                  `Editing ${editingEntry.id} · learning progress is preserved`,
+                )
+              : t(
+                  "Εισαγωγή προτάσεων & εκφράσεων μέσω JSON ή φόρμας",
+                  "Import sentences & expressions via JSON or form",
+                )}
           </p>
         </div>
         {editingEntry && onCancelEdit && (
@@ -251,7 +281,7 @@ export default function SentenceAddView({
             onClick={onCancelEdit}
             className="rounded-full border border-[#E8E0CE] bg-white px-4 py-2 text-xs font-semibold text-[#4A453D]"
           >
-            Ακύρωση
+            {t("Ακύρωση", "Cancel")}
           </button>
         )}
       </div>
@@ -270,7 +300,7 @@ export default function SentenceAddView({
                 : "border-[#E8E0CE] bg-white text-[#8B8680]"
             }`}
           >
-            <FileJson size={15} /> Εισαγωγή JSON
+            <FileJson size={15} /> {t("Εισαγωγή JSON", "Import JSON")}
           </button>
           <button
             type="button"
@@ -284,7 +314,7 @@ export default function SentenceAddView({
                 : "border-[#E8E0CE] bg-white text-[#8B8680]"
             }`}
           >
-            <PenLine size={15} /> Φόρμα καταχώρισης
+            <PenLine size={15} /> {t("Φόρμα καταχώρισης", "Manual form")}
           </button>
         </div>
       )}
@@ -301,7 +331,7 @@ export default function SentenceAddView({
           <span>{message.text}</span>
           {message.ok && (
             <button type="button" onClick={onGoToList} className="shrink-0 underline">
-              Προβολή όλων
+              {t("Προβολή όλων", "View all")}
             </button>
           )}
         </div>
@@ -312,8 +342,17 @@ export default function SentenceAddView({
         <div className="ww-tag-card mt-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs leading-relaxed text-[#6B655D]">
-              Επικόλλησε <strong>μία καταχώριση</strong> ή <strong>JSON array</strong> με πολλές
-              προτάσεις/εκφράσεις. Ελέγχεται αυτόματα η εγκυρότητα και τυχόν διπλότυπα.
+              {isEn ? (
+                <>
+                  Paste a <strong>single entry</strong> or a <strong>JSON array</strong> of
+                  sentences/expressions. JSON validity and duplicates are checked automatically.
+                </>
+              ) : (
+                <>
+                  Επικόλλησε <strong>μία καταχώριση</strong> ή <strong>JSON array</strong> με
+                  πολλές προτάσεις/εκφράσεις. Ελέγχεται αυτόματα η εγκυρότητα και τυχόν διπλότυπα.
+                </>
+              )}
             </p>
             <div className="flex gap-2">
               <button
@@ -325,10 +364,10 @@ export default function SentenceAddView({
                 }}
                 className="rounded-full border border-[#E8E0CE] bg-[#F5F0E6] px-3 py-1.5 text-[11px] font-semibold text-[#4A453D]"
               >
-                Φόρτωση παραδείγματος
+                {t("Φόρτωση παραδείγματος", "Load sample")}
               </button>
               <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#E8E0CE] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#4A453D]">
-                <Upload size={12} /> Αρχείο .json
+                <Upload size={12} /> {t("Αρχείο .json", ".json file")}
                 <input
                   type="file"
                   accept=".json,application/json"
@@ -340,7 +379,7 @@ export default function SentenceAddView({
           </div>
 
           <textarea
-            aria-label="JSON προτάσεων"
+            aria-label={t("JSON προτάσεων", "Sentences JSON")}
             rows={10}
             value={jsonText}
             onChange={(e) => {
@@ -360,7 +399,7 @@ export default function SentenceAddView({
               disabled={!jsonText.trim()}
               className="mt-3 w-full rounded-full bg-[#211F1C] py-3.5 text-sm font-semibold text-[#F5F0E6] disabled:bg-[#D9D2C0] disabled:text-[#8B8680]"
             >
-              Έλεγχος JSON &amp; Διπλοτύπων
+              {t("Έλεγχος JSON & Διπλοτύπων", "Validate JSON & Check Duplicates")}
             </button>
           )}
 
@@ -369,8 +408,10 @@ export default function SentenceAddView({
             <div className="ww-pop mt-4 rounded-2xl border border-[#E8E0CE] bg-[#FAF8F4] p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[#211F1C]">
                 <span>
-                  Έλεγχος εισαγωγής: {reviewRows.length} εγγραφές ({newCount} νέες · {dupCount}{" "}
-                  διπλότυπες)
+                  {t(
+                    `Έλεγχος εισαγωγής: ${reviewRows.length} εγγραφές (${newCount} νέες · ${dupCount} διπλότυπες)`,
+                    `Import review: ${reviewRows.length} entries (${newCount} new · ${dupCount} duplicates)`,
+                  )}
                 </span>
               </div>
 
@@ -381,9 +422,19 @@ export default function SentenceAddView({
                 >
                   <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                   <span>
-                    Εντοπίστηκαν <strong>{dupCount}</strong> διπλότυπες προτάσεις (ανεξάρτητα από
-                    πεζά/κεφαλαία και κενά). Από προεπιλογή παραλείπονται — μπορείς να αλλάξεις την
-                    ενέργεια ανά εγγραφή.
+                    {isEn ? (
+                      <>
+                        Found <strong>{dupCount}</strong> duplicate sentence(s) (case- and
+                        whitespace-insensitive). Skipped by default — you can change the action per
+                        row.
+                      </>
+                    ) : (
+                      <>
+                        Εντοπίστηκαν <strong>{dupCount}</strong> διπλότυπες προτάσεις (ανεξάρτητα
+                        από πεζά/κεφαλαία και κενά). Από προεπιλογή παραλείπονται — μπορείς να
+                        αλλάξεις την ενέργεια ανά εγγραφή.
+                      </>
+                    )}
                   </span>
                 </div>
               )}
@@ -397,7 +448,7 @@ export default function SentenceAddView({
                           {row.entry.sentence}
                         </div>
                         <div className="text-xs text-[#6B655D]">
-                          {row.entry.meaning.el || row.entry.meaning.en} · {row.entry.cefr} ·{" "}
+                          {sentencePrimaryMeaning(row.entry, lang)} · {row.entry.cefr} ·{" "}
                           {SENTENCE_TYPE_LABELS[row.entry.type].de}
                         </div>
                       </div>
@@ -408,20 +459,25 @@ export default function SentenceAddView({
                             : "bg-[#3F8C5F]/15 text-[#1F5637]"
                         }`}
                       >
-                        {row.isDuplicate ? "Διπλότυπο" : "Νέα"}
+                        {row.isDuplicate ? t("Διπλότυπο", "Duplicate") : t("Νέα", "New")}
                       </span>
                     </div>
 
                     {row.duplicateMatch && (
                       <div className="text-[11px] text-[#8A5B1A]">
-                        Ταιριάζει με{" "}
-                        {row.duplicateSource === "existing" ? "υπάρχουσα" : "προηγούμενη στη λίστα"}
+                        {t("Ταιριάζει με ", "Matches ")}
+                        {row.duplicateSource === "existing"
+                          ? t("υπάρχουσα", "existing entry")
+                          : t("προηγούμενη στη λίστα", "earlier entry in batch")}
                         : «{row.duplicateMatch.sentence}» ({row.duplicateMatch.id})
                       </div>
                     )}
 
                     <select
-                      aria-label={`Ενέργεια για ${row.entry.sentence}`}
+                      aria-label={t(
+                        `Ενέργεια για ${row.entry.sentence}`,
+                        `Action for ${row.entry.sentence}`,
+                      )}
                       value={row.action}
                       onChange={(e) => {
                         const action = e.target.value as SentenceImportReviewRow["action"];
@@ -431,12 +487,19 @@ export default function SentenceAddView({
                       }}
                       className="w-full rounded-xl border border-[#E8E0CE] bg-white px-3 py-2 text-xs text-[#211F1C]"
                     >
-                      <option value="skip">Παράλειψη</option>
+                      <option value="skip">{t("Παράλειψη", "Skip")}</option>
                       {row.isDuplicate && row.duplicateSource === "existing" && (
-                        <option value="replace">Ενημέρωση υπάρχουσας (διατήρηση προόδου)</option>
+                        <option value="replace">
+                          {t(
+                            "Ενημέρωση υπάρχουσας (διατήρηση προόδου)",
+                            "Update existing (keep progress)",
+                          )}
+                        </option>
                       )}
                       <option value="add">
-                        {row.isDuplicate ? "Προσθήκη ως ξεχωριστή εγγραφή" : "Προσθήκη"}
+                        {row.isDuplicate
+                          ? t("Προσθήκη ως ξεχωριστή εγγραφή", "Add as separate entry")
+                          : t("Προσθήκη", "Add")}
                       </option>
                     </select>
                   </div>
@@ -449,14 +512,14 @@ export default function SentenceAddView({
                   onClick={handleConfirmJsonImport}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#3F8C5F] py-3 text-xs font-semibold text-white"
                 >
-                  <Check size={15} /> Επιβεβαίωση εισαγωγής
+                  <Check size={15} /> {t("Επιβεβαίωση εισαγωγής", "Confirm import")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setReviewRows(null)}
                   className="rounded-full border border-[#E8E0CE] bg-white px-4 py-3 text-xs font-semibold text-[#4A453D]"
                 >
-                  Ακύρωση
+                  {t("Ακύρωση", "Cancel")}
                 </button>
               </div>
             </div>
@@ -472,7 +535,7 @@ export default function SentenceAddView({
         >
           <div>
             <label className="text-xs font-semibold text-[#4A453D]">
-              Γερμανική πρόταση ή έκφραση *
+              {t("Γερμανική πρόταση ή έκφραση *", "German sentence or expression *")}
             </label>
             <input
               type="text"
@@ -482,28 +545,34 @@ export default function SentenceAddView({
                 setSentence(e.target.value);
                 setFormDuplicateWarning(null);
               }}
-              placeholder="π.χ. Könnten Sie mir bitte das Salz reichen?"
+              placeholder={t(
+                "π.χ. Könnten Sie mir bitte das Salz reichen?",
+                "e.g. Könnten Sie mir bitte das Salz reichen?",
+              )}
               className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Τύπος</label>
+              <label className="text-xs font-semibold text-[#4A453D]">{t("Τύπος", "Type")}</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as SentenceType)}
                 className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3 py-2.5 text-xs text-[#211F1C]"
               >
-                {SENTENCE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {SENTENCE_TYPE_LABELS[t].de} ({SENTENCE_TYPE_LABELS[t].el})
+                {SENTENCE_TYPES.map((tp) => (
+                  <option key={tp} value={tp}>
+                    {SENTENCE_TYPE_LABELS[tp].de} (
+                    {isEn ? SENTENCE_TYPE_LABELS[tp].en : SENTENCE_TYPE_LABELS[tp].el})
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Επίπεδο CEFR</label>
+              <label className="text-xs font-semibold text-[#4A453D]">
+                {t("Επίπεδο CEFR", "CEFR Level")}
+              </label>
               <select
                 value={cefr}
                 onChange={(e) => setCefr(e.target.value as SentenceCefr)}
@@ -519,18 +588,25 @@ export default function SentenceAddView({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[#4A453D]">Ελληνική σημασία *</label>
+            <label className="text-xs font-semibold text-[#4A453D]">
+              {t("Ελληνική σημασία *", "Greek meaning")}
+            </label>
             <input
               type="text"
               value={meaningEl}
               onChange={(e) => setMeaningEl(e.target.value)}
-              placeholder="π.χ. Θα μπορούσατε να μου δώσετε το αλάτι, παρακαλώ;"
+              placeholder={t(
+                "π.χ. Θα μπορούσατε να μου δώσετε το αλάτι, παρακαλώ;",
+                "e.g. Θα μπορούσατε να μου δώσετε το αλάτι, παρακαλώ;",
+              )}
               className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[#4A453D]">Αγγλική σημασία</label>
+            <label className="text-xs font-semibold text-[#4A453D]">
+              {t("Αγγλική σημασία", "English meaning *")}
+            </label>
             <input
               type="text"
               value={meaningEn}
@@ -542,58 +618,78 @@ export default function SentenceAddView({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Περίσταση (Context)</label>
+              <label className="text-xs font-semibold text-[#4A453D]">
+                {t("Περίσταση (Context)", "Context")}
+              </label>
               <input
                 type="text"
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                placeholder="π.χ. Am Esstisch / Im Büro"
+                placeholder={t("π.χ. Am Esstisch / Im Büro", "e.g. Am Esstisch / Im Büro")}
                 className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Γραμματική</label>
+              <label className="text-xs font-semibold text-[#4A453D]">
+                {t("Γραμματική", "Grammar")}
+              </label>
               <input
                 type="text"
                 value={grammar}
                 onChange={(e) => setGrammar(e.target.value)}
-                placeholder="π.χ. Konjunktiv II – höfliche Bitte"
+                placeholder={t(
+                  "π.χ. Konjunktiv II – höfliche Bitte",
+                  "e.g. Konjunktiv II – höfliche Bitte",
+                )}
                 className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-[#4A453D]">Χρήση (Usage)</label>
+            <label className="text-xs font-semibold text-[#4A453D]">
+              {t("Χρήση (Usage)", "Usage")}
+            </label>
             <input
               type="text"
               value={usage}
               onChange={(e) => setUsage(e.target.value)}
-              placeholder="Πότε και πώς χρησιμοποιείται αυτή η έκφραση;"
-              className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-[#4A453D]">Δομή (Structure)</label>
-            <input
-              type="text"
-              value={structure}
-              onChange={(e) => setStructure(e.target.value)}
-              placeholder="π.χ. Könnten Sie mir bitte + [Akkusativ] + reichen?"
+              placeholder={t(
+                "Πότε και πώς χρησιμοποιείται αυτή η έκφραση;",
+                "When and how is this expression used?",
+              )}
               className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
             />
           </div>
 
           <div>
             <label className="text-xs font-semibold text-[#4A453D]">
-              Παραδείγματα (ένα ανά γραμμή: Γερμανικά | Ελληνικά)
+              {t("Δομή (Structure)", "Structure")}
+            </label>
+            <input
+              type="text"
+              value={structure}
+              onChange={(e) => setStructure(e.target.value)}
+              placeholder={t(
+                "π.χ. Könnten Sie mir bitte + [Akkusativ] + reichen?",
+                "e.g. Könnten Sie mir bitte + [Akkusativ] + reichen?",
+              )}
+              className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] px-3.5 py-2.5 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-[#4A453D]">
+              {t(
+                "Παραδείγματα (ένα ανά γραμμή: Γερμανικά | Ελληνικά)",
+                "Examples (one per line: German | Translation)",
+              )}
             </label>
             <textarea
               rows={2}
               value={examplesText}
               onChange={(e) => setExamplesText(e.target.value)}
-              placeholder="Entschuldigung, könnten Sie mir bitte das Salz reichen? | Συγγνώμη, θα μπορούσατε..."
+              placeholder="Entschuldigung, könnten Sie mir bitte das Salz reichen? | Excuse me, could you..."
               className="mt-1 w-full rounded-xl border border-[#E8E0CE] bg-[#FAF8F4] p-3 text-xs text-[#211F1C] outline-none focus:border-[#CB9146]"
             />
           </div>
@@ -601,7 +697,7 @@ export default function SentenceAddView({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-semibold text-[#4A453D]">
-                Εναλλακτικές (με κόμμα)
+                {t("Εναλλακτικές (με κόμμα)", "Alternatives (comma-separated)")}
               </label>
               <input
                 type="text"
@@ -611,7 +707,9 @@ export default function SentenceAddView({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Συνώνυμα (με κόμμα)</label>
+              <label className="text-xs font-semibold text-[#4A453D]">
+                {t("Συνώνυμα (με κόμμα)", "Synonyms (comma-separated)")}
+              </label>
               <input
                 type="text"
                 value={synonyms}
@@ -632,7 +730,9 @@ export default function SentenceAddView({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#4A453D]">Tags (με κόμμα)</label>
+              <label className="text-xs font-semibold text-[#4A453D]">
+                {t("Tags (με κόμμα)", "Tags (comma-separated)")}
+              </label>
               <input
                 type="text"
                 value={tags}
@@ -651,8 +751,10 @@ export default function SentenceAddView({
               <div className="flex items-start gap-2 font-semibold">
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                 <span>
-                  Αυτή η πρόταση υπάρχει ήδη ως «{formDuplicateWarning.sentence}» (
-                  {formDuplicateWarning.id}).
+                  {t(
+                    `Αυτή η πρόταση υπάρχει ήδη ως «${formDuplicateWarning.sentence}» (${formDuplicateWarning.id}).`,
+                    `This sentence already exists as "${formDuplicateWarning.sentence}" (${formDuplicateWarning.id}).`,
+                  )}
                 </span>
               </div>
               <div className="mt-3 flex gap-2">
@@ -661,14 +763,14 @@ export default function SentenceAddView({
                   onClick={(e) => handleSubmitForm(e, true)}
                   className="rounded-full bg-[#CB9146] px-4 py-2 text-xs font-semibold text-[#211F1C]"
                 >
-                  Προσθήκη ούτως ή άλλως
+                  {t("Προσθήκη ούτως ή άλλως", "Add anyway")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFormDuplicateWarning(null)}
                   className="rounded-full border border-[#E8E0CE] bg-white px-4 py-2 text-xs font-semibold text-[#4A453D]"
                 >
-                  Ακύρωση
+                  {t("Ακύρωση", "Cancel")}
                 </button>
               </div>
             </div>
@@ -678,7 +780,9 @@ export default function SentenceAddView({
             type="submit"
             className="w-full rounded-full bg-[#211F1C] py-3.5 text-sm font-semibold text-[#F5F0E6]"
           >
-            {editingEntry ? "Αποθήκευση αλλαγών" : "Αποθήκευση πρότασης"}
+            {editingEntry
+              ? t("Αποθήκευση αλλαγών", "Save changes")
+              : t("Αποθήκευση πρότασης", "Save sentence")}
           </button>
         </form>
       )}

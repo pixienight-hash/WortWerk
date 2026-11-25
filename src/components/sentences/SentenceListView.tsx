@@ -11,6 +11,7 @@ import {
   type SentenceCefr,
   type SentenceMasteryStatus,
 } from "@/lib/sentences-data";
+import { useAppLang, sentencePrimaryMeaning, sentenceSecondaryMeaning } from "@/lib/i18n";
 import { speakGerman } from "./SentencePracticeRunner";
 
 interface Props {
@@ -29,6 +30,7 @@ const STATUS_OPTIONS: readonly SentenceMasteryStatus[] = [
 ];
 
 export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelete }: Props) {
+  const { lang, isEn, t } = useAppLang();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<SentenceType | "all">("all");
   const [cefrFilter, setCefrFilter] = useState<SentenceCefr | "all">("all");
@@ -54,7 +56,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
         s.meaning.en.toLowerCase().includes(q) ||
         s.context.toLowerCase().includes(q) ||
         s.usage.toLowerCase().includes(q) ||
-        s.tags.some((t) => t.toLowerCase().includes(q))
+        s.tags.some((tg) => tg.toLowerCase().includes(q))
       );
     });
   }, [sentences, query, typeFilter, cefrFilter, statusFilter]);
@@ -89,15 +91,18 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
             Alle Sätze
           </h1>
           <p className="mt-0.5 text-[13px] text-[#8B8680]">
-            {sentences.length} προτάσεις &amp; εκφράσεις · ανεξάρτητη συλλογή
+            {t(
+              `${sentences.length} προτάσεις & εκφράσεις · ανεξάρτητη συλλογή`,
+              `${sentences.length} sentences & expressions · independent collection`,
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={exportSentencesJson}
-            aria-label="Εξαγωγή προτάσεων JSON"
-            title="Εξαγωγή JSON"
+            aria-label={t("Εξαγωγή προτάσεων JSON", "Export sentences JSON")}
+            title={t("Εξαγωγή JSON", "Export JSON")}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E8E0CE] bg-white text-[#4A453D]"
           >
             <Download size={16} />
@@ -105,11 +110,11 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
           <button
             type="button"
             onClick={onOpenAdd}
-            aria-label="Προσθήκη νέας πρότασης"
+            aria-label={t("Προσθήκη νέας πρότασης", "Add new sentence")}
             className="flex h-10 items-center gap-1.5 rounded-full bg-[#CB9146] px-3.5 text-xs font-semibold text-[#211F1C]"
           >
             <Plus size={15} />
-            <span>Νέα</span>
+            <span>{t("Νέα", "New")}</span>
           </button>
         </div>
       </div>
@@ -121,7 +126,10 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Αναζήτηση (Deutsch / Ελληνικά / English / Περίσταση)…"
+          placeholder={t(
+            "Αναζήτηση (Deutsch / Ελληνικά / English / Περίσταση)…",
+            "Search (Deutsch / English / Greek / Context)…",
+          )}
           className="w-full rounded-xl border border-[#E8E0CE] bg-white py-2.5 pr-4 pl-10 text-sm text-[#211F1C] outline-none focus:border-[#CB9146]"
         />
       </div>
@@ -133,16 +141,16 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
           onClick={() => setTypeFilter("all")}
           className={chipClass(typeFilter === "all")}
         >
-          Όλοι οι τύποι
+          {t("Όλοι οι τύποι", "All types")}
         </button>
-        {SENTENCE_TYPES.map((t) => (
+        {SENTENCE_TYPES.map((tp) => (
           <button
-            key={t}
+            key={tp}
             type="button"
-            onClick={() => setTypeFilter(t)}
-            className={chipClass(typeFilter === t)}
+            onClick={() => setTypeFilter(tp)}
+            className={chipClass(typeFilter === tp)}
           >
-            {SENTENCE_TYPE_LABELS[t].de}
+            {SENTENCE_TYPE_LABELS[tp].de}
           </button>
         ))}
       </div>
@@ -154,7 +162,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
           onClick={() => setCefrFilter("all")}
           className={chipClass(cefrFilter === "all")}
         >
-          Όλα τα CEFR
+          {t("Όλα τα CEFR", "All CEFR")}
         </button>
         {availableCefrs.map((lvl) => (
           <button
@@ -172,7 +180,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
           onClick={() => setStatusFilter("all")}
           className={chipClass(statusFilter === "all")}
         >
-          Όλα τα status
+          {t("Όλα τα status", "All statuses")}
         </button>
         {STATUS_OPTIONS.map((st) => (
           <button
@@ -190,7 +198,10 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
       <div className="mt-4 flex flex-col gap-2.5">
         {filtered.length === 0 && (
           <div className="ww-tag-card p-8 text-center text-sm text-[#8B8680]">
-            Δεν βρέθηκαν προτάσεις με αυτά τα κριτήρια.
+            {t(
+              "Δεν βρέθηκαν προτάσεις με αυτά τα κριτήρια.",
+              "No sentences match these filters.",
+            )}
           </div>
         )}
         {filtered.map((s) => {
@@ -232,14 +243,14 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                   {s.sentence}
                 </div>
                 <div className="mt-1 text-[13px] text-[#5E584F]">
-                  {s.meaning.el || s.meaning.en}
+                  {sentencePrimaryMeaning(s, lang)}
                 </div>
                 {s.context && <div className="mt-1 text-[11px] text-[#8B8680]">{s.context}</div>}
               </button>
               <button
                 type="button"
                 onClick={() => speakGerman(s.sentence)}
-                aria-label={`Ακρόαση ${s.sentence}`}
+                aria-label={t(`Ακρόαση ${s.sentence}`, `Listen to ${s.sentence}`)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F5F0E6] text-[#4A453D]"
               >
                 <Volume2 size={15} />
@@ -269,6 +280,8 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
               const typeMeta = SENTENCE_TYPE_LABELS[selected.type];
               const report = computeSentenceMastery(selected);
               const statusMeta = SENTENCE_STATUS_LABELS[report.status];
+              const primaryM = sentencePrimaryMeaning(selected, lang);
+              const secondaryM = sentenceSecondaryMeaning(selected, lang);
               return (
                 <>
                   <div className="flex items-start justify-between gap-3">
@@ -277,7 +290,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                         className="ww-mono rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
                         style={{ color: typeMeta.color, background: typeMeta.bg }}
                       >
-                        {typeMeta.de} · {typeMeta.el}
+                        {typeMeta.de} · {isEn ? typeMeta.en : typeMeta.el}
                       </span>
                       <span className="ww-mono rounded-full bg-[#ECE4D3] px-2 py-0.5 text-[10px] font-semibold text-[#4A453D]">
                         {selected.cefr}
@@ -295,7 +308,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                         setSelectedId(null);
                         setConfirmDelete(false);
                       }}
-                      aria-label="Κλείσιμο λεπτομερειών"
+                      aria-label={t("Κλείσιμο λεπτομερειών", "Close details")}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECE4D3] text-[#4A453D]"
                     >
                       <X size={16} />
@@ -309,7 +322,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                     <button
                       type="button"
                       onClick={() => speakGerman(selected.sentence)}
-                      aria-label="Ακρόαση πρότασης"
+                      aria-label={t("Ακρόαση πρότασης", "Listen to sentence")}
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F0E6] text-[#211F1C]"
                     >
                       <Volume2 size={17} />
@@ -317,13 +330,11 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                   </div>
 
                   <div className="mt-3 rounded-2xl bg-[#F5F0E6] p-4">
-                    {selected.meaning.el && (
-                      <div className="text-[15px] font-semibold text-[#211F1C]">
-                        {selected.meaning.el}
-                      </div>
+                    {primaryM && (
+                      <div className="text-[15px] font-semibold text-[#211F1C]">{primaryM}</div>
                     )}
-                    {selected.meaning.en && (
-                      <div className="mt-1 text-xs text-[#6B655D]">{selected.meaning.en}</div>
+                    {secondaryM && (
+                      <div className="mt-1 text-xs text-[#6B655D]">{secondaryM}</div>
                     )}
                   </div>
 
@@ -331,13 +342,17 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                     <div className="mt-4 space-y-1.5 text-sm">
                       {selected.context && (
                         <div>
-                          <span className="font-semibold text-[#211F1C]">Περίσταση: </span>
+                          <span className="font-semibold text-[#211F1C]">
+                            {t("Περίσταση: ", "Context: ")}
+                          </span>
                           <span className="text-[#5E584F]">{selected.context}</span>
                         </div>
                       )}
                       {selected.usage && (
                         <div>
-                          <span className="font-semibold text-[#211F1C]">Χρήση: </span>
+                          <span className="font-semibold text-[#211F1C]">
+                            {t("Χρήση: ", "Usage: ")}
+                          </span>
                           <span className="text-[#5E584F]">{selected.usage}</span>
                         </div>
                       )}
@@ -348,13 +363,17 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                     <div className="mt-4 rounded-2xl border border-[#ECE4D3] bg-[#FAF8F4] p-3.5 text-xs">
                       {selected.grammar && (
                         <div className="text-[#4A453D]">
-                          <span className="font-semibold text-[#211F1C]">Γραμματική: </span>
+                          <span className="font-semibold text-[#211F1C]">
+                            {t("Γραμματική: ", "Grammar: ")}
+                          </span>
                           {selected.grammar}
                         </div>
                       )}
                       {selected.structure && (
                         <div className="mt-1.5 text-[#4A453D]">
-                          <span className="font-semibold text-[#211F1C]">Δομή: </span>
+                          <span className="font-semibold text-[#211F1C]">
+                            {t("Δομή: ", "Structure: ")}
+                          </span>
                           <span className="ww-mono text-[11px]">{selected.structure}</span>
                         </div>
                       )}
@@ -364,18 +383,21 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                   {selected.examples.length > 0 && (
                     <div className="mt-4">
                       <div className="ww-mono text-[10px] font-semibold uppercase tracking-wider text-[#8B8680]">
-                        Παραδείγματα
+                        {t("Παραδείγματα", "Examples")}
                       </div>
                       <div className="mt-1.5 space-y-2">
-                        {selected.examples.map((ex, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-xl bg-[#F5F0E6]/70 px-3.5 py-2.5 text-xs"
-                          >
-                            <div className="font-medium text-[#211F1C]">{ex.de}</div>
-                            {ex.el && <div className="mt-0.5 text-[#6B655D]">{ex.el}</div>}
-                          </div>
-                        ))}
+                        {selected.examples.map((ex, idx) => {
+                          const trans = isEn ? ex.en || ex.el : ex.el || ex.en;
+                          return (
+                            <div
+                              key={idx}
+                              className="rounded-xl bg-[#F5F0E6]/70 px-3.5 py-2.5 text-xs"
+                            >
+                              <div className="font-medium text-[#211F1C]">{ex.de}</div>
+                              {trans && <div className="mt-0.5 text-[#6B655D]">{trans}</div>}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -385,7 +407,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                       {selected.alternatives.length > 0 && (
                         <div>
                           <div className="ww-mono text-[10px] font-semibold uppercase tracking-wider text-[#8B8680]">
-                            Εναλλακτικές
+                            {t("Εναλλακτικές", "Alternatives")}
                           </div>
                           <ul className="mt-1 space-y-1 text-xs text-[#4A453D]">
                             {selected.alternatives.map((a, i) => (
@@ -397,7 +419,7 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                       {selected.synonyms.length > 0 && (
                         <div>
                           <div className="ww-mono text-[10px] font-semibold uppercase tracking-wider text-[#8B8680]">
-                            Συνώνυμα
+                            {t("Συνώνυμα", "Synonyms")}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1.5">
                             {selected.synonyms.map((syn, i) => (
@@ -424,24 +446,37 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                   {/* Independent Mastery Progress */}
                   <div className="mt-4 rounded-2xl border border-[#ECE4D3] p-3.5">
                     <div className="flex items-center justify-between text-xs font-semibold text-[#211F1C]">
-                      <span>Πρόοδος Κατάκτησης (Sätze)</span>
+                      <span>{t("Πρόοδος Κατάκτησης (Sätze)", "Mastery Progress (Sätze)")}</span>
                       <span className="ww-mono text-[11px] text-[#8B8680]">
-                        {selected.learning.timesCorrect}/{selected.learning.timesSeen} σωστές
+                        {selected.learning.timesCorrect}/{selected.learning.timesSeen}{" "}
+                        {t("σωστές", "correct")}
                       </span>
                     </div>
                     <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
                       {[
                         {
-                          label: `Ενεργές επιτυχίες (${report.activeSuccesses}/3)`,
+                          label: t(
+                            `Ενεργές επιτυχίες (${report.activeSuccesses}/3)`,
+                            `Active successes (${report.activeSuccesses}/3)`,
+                          ),
                           ok: report.requirements.activeSuccesses,
                         },
-                        { label: `Πλήρης γραφή Schreiben`, ok: report.requirements.writtenRecall },
                         {
-                          label: `Ενεργά είδη (${report.activeModesCount}/2)`,
+                          label: t("Πλήρης γραφή Schreiben", "Full written recall (Schreiben)"),
+                          ok: report.requirements.writtenRecall,
+                        },
+                        {
+                          label: t(
+                            `Ενεργά είδη (${report.activeModesCount}/2)`,
+                            `Active modes (${report.activeModesCount}/2)`,
+                          ),
                           ok: report.requirements.twoActiveModes,
                         },
                         {
-                          label: `Καθυστερημένη αλυσίδα (${report.delayedSteps}/2)`,
+                          label: t(
+                            `Καθυστερημένη αλυσίδα (${report.delayedSteps}/2)`,
+                            `Delayed chain (${report.delayedSteps}/2)`,
+                          ),
                           ok: report.requirements.delayedChain,
                         },
                       ].map((req, idx) => (
@@ -474,20 +509,23 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                         }}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#E8E0CE] bg-[#F5F0E6] py-3 text-xs font-semibold text-[#211F1C]"
                       >
-                        <Pencil size={14} /> Επεξεργασία
+                        <Pencil size={14} /> {t("Επεξεργασία", "Edit")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(true)}
                         className="flex items-center justify-center gap-1.5 rounded-full border border-[#C1543C]/30 bg-[#C1543C]/10 px-4 py-3 text-xs font-semibold text-[#C1543C]"
                       >
-                        <Trash2 size={14} /> Διαγραφή
+                        <Trash2 size={14} /> {t("Διαγραφή", "Delete")}
                       </button>
                     </div>
                   ) : (
                     <div className="mt-5 rounded-2xl border border-[#C1543C]/40 bg-[#C1543C]/10 p-3.5">
                       <p className="text-xs font-semibold text-[#8A2F1C]">
-                        Σίγουρα θέλεις να διαγράψεις αυτή την πρόταση από τα Sätze &amp; Ausdrücke;
+                        {t(
+                          "Σίγουρα θέλεις να διαγράψεις αυτή την πρόταση από τα Sätze & Ausdrücke;",
+                          "Are you sure you want to delete this sentence from Sätze & Ausdrücke?",
+                        )}
                       </p>
                       <div className="mt-3 flex gap-2">
                         <button
@@ -500,14 +538,14 @@ export default function SentenceListView({ sentences, onOpenAdd, onEdit, onDelet
                           }}
                           className="flex-1 rounded-full bg-[#C1543C] py-2.5 text-xs font-semibold text-white"
                         >
-                          Επιβεβαίωση διαγραφής
+                          {t("Επιβεβαίωση διαγραφής", "Confirm delete")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(false)}
                           className="flex-1 rounded-full border border-[#E8E0CE] bg-white py-2.5 text-xs font-semibold text-[#211F1C]"
                         >
-                          Ακύρωση
+                          {t("Ακύρωση", "Cancel")}
                         </button>
                       </div>
                     </div>

@@ -203,53 +203,61 @@ export const SENTENCE_CEFR_LEVELS: readonly SentenceCefr[] = [
 
 export const SENTENCE_TYPE_LABELS: Record<
   SentenceType,
-  { de: string; el: string; color: string; bg: string }
+  { de: string; el: string; en: string; color: string; bg: string }
 > = {
   everyday_expression: {
     de: "Alltagsausdruck",
     el: "Καθημερινή έκφραση",
+    en: "Everyday expression",
     color: "#3F8C5F",
     bg: "rgba(63,140,95,0.13)",
   },
   polite_request: {
     de: "Höfliche Bitte",
     el: "Ευγενικό αίτημα",
+    en: "Polite request",
     color: "#4FA091",
     bg: "rgba(79,160,145,0.14)",
   },
   polite_question: {
     de: "Höfliche Frage",
     el: "Ευγενική ερώτηση",
+    en: "Polite question",
     color: "#3C7D9B",
     bg: "rgba(60,125,155,0.13)",
   },
   idiom: {
     de: "Redewendung",
     el: "Ιδιωματισμός",
+    en: "Idiom",
     color: "#B5542E",
     bg: "rgba(181,84,46,0.13)",
   },
   fixed_expression: {
     de: "Feste Wendung",
     el: "Σταθερή έκφραση",
+    en: "Fixed expression",
     color: "#CB9146",
     bg: "rgba(203,145,70,0.16)",
   },
   sentence: {
     de: "Satz",
     el: "Πρόταση",
+    en: "Sentence",
     color: "#5E6B78",
     bg: "rgba(94,107,120,0.13)",
   },
   sentence_pattern: {
     de: "Satzmuster",
     el: "Μοτίβο πρότασης",
+    en: "Sentence pattern",
     color: "#8B7BC7",
     bg: "rgba(139,123,199,0.14)",
   },
   professional_expression: {
     de: "Beruf & Formell",
     el: "Επαγγελματική έκφραση",
+    en: "Professional expression",
     color: "#2D5A7B",
     bg: "rgba(45,90,123,0.13)",
   },
@@ -1054,7 +1062,12 @@ function levenshtein(a: string, b: string): number {
   return dp[b.length]!;
 }
 
-function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEvalResult {
+function evaluateAgainstTarget(
+  userRaw: string,
+  targetRaw: string,
+  lang: "el" | "en" = "el",
+): SentenceEvalResult {
+  const isEn = lang === "en";
   const userTokens = tokenizeSentence(userRaw);
   const targetTokens = tokenizeSentence(targetRaw);
 
@@ -1064,7 +1077,7 @@ function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEval
       correct: false,
       exact: false,
       matchedAlternative: null,
-      feedback: "Δεν πληκτρολογήθηκε απάντηση.",
+      feedback: isEn ? "No answer entered." : "Δεν πληκτρολογήθηκε απάντηση.",
       wordDiff: targetTokens.map((t) => ({ expected: t, actual: "", status: "missing" })),
     };
   }
@@ -1079,7 +1092,7 @@ function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEval
       correct: true,
       exact: true,
       matchedAlternative: null,
-      feedback: "Ακριβώς σωστό!",
+      feedback: isEn ? "Exactly right!" : "Ακριβώς σωστό!",
       wordDiff: targetTokens.map((t, i) => ({
         expected: t,
         actual: userTokens[i]!,
@@ -1107,8 +1120,12 @@ function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEval
       matchedAlternative: null,
       feedback:
         userTokens.length < targetTokens.length
-          ? "Λείπουν λέξεις από την πρόταση — έλεγξε ολόκληρη τη δομή."
-          : "Υπάρχουν επιπλέον ή διαφορετικές λέξεις στη δομή της πρότασης.",
+          ? isEn
+            ? "Words are missing from the sentence — check the full structure."
+            : "Λείπουν λέξεις από την πρόταση — έλεγξε ολόκληρη τη δομή."
+          : isEn
+            ? "There are extra or different words in the sentence structure."
+            : "Υπάρχουν επιπλέον ή διαφορετικές λέξεις στη δομή της πρότασης.",
       wordDiff: diff,
     };
   }
@@ -1174,8 +1191,12 @@ function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEval
       exact: false,
       matchedAlternative: null,
       feedback: onlyCaseOrUmlaut
-        ? "Σχεδόν σωστό — μικρή διαφορά σε κεφαλαία ή διαλυτικά (ä/ö/ü/ß)."
-        : "Σχεδόν σωστό — μικρό ορθογραφικό λάθος. Δες τη σωστή γραφή παρακάτω.",
+        ? isEn
+          ? "Almost right — minor capitalization or umlaut/ß difference (ä/ö/ü/ß)."
+          : "Σχεδόν σωστό — μικρή διαφορά σε κεφαλαία ή διαλυτικά (ä/ö/ü/ß)."
+        : isEn
+          ? "Almost right — minor spelling typo. Check the exact spelling below."
+          : "Σχεδόν σωστό — μικρό ορθογραφικό λάθος. Δες τη σωστή γραφή παρακάτω.",
       wordDiff,
     };
   }
@@ -1185,7 +1206,9 @@ function evaluateAgainstTarget(userRaw: string, targetRaw: string): SentenceEval
     correct: false,
     exact: false,
     matchedAlternative: null,
-    feedback: "Λανθασμένη απάντηση — έλεγξε τις λέξεις και τη σειρά τους.",
+    feedback: isEn
+      ? "Incorrect answer — check the words and their order."
+      : "Λανθασμένη απάντηση — έλεγξε τις λέξεις και τη σειρά τους.",
     wordDiff,
   };
 }
@@ -1194,19 +1217,23 @@ export function evaluateSentenceAnswer(
   userInput: string,
   expectedSentence: string,
   alternatives: readonly string[] = [],
+  lang: "el" | "en" = "el",
 ): SentenceEvalResult {
-  const primary = evaluateAgainstTarget(userInput, expectedSentence);
+  const isEn = lang === "en";
+  const primary = evaluateAgainstTarget(userInput, expectedSentence, lang);
   if (primary.verdict === "exact") return primary;
 
   let best = primary;
   for (const alt of alternatives) {
     if (!alt.trim()) continue;
-    const res = evaluateAgainstTarget(userInput, alt);
+    const res = evaluateAgainstTarget(userInput, alt, lang);
     if (res.verdict === "exact") {
       return {
         ...res,
         matchedAlternative: alt,
-        feedback: "Ακριβώς σωστό (εναλλακτική διατύπωση)!",
+        feedback: isEn
+          ? "Exactly right (accepted alternative)!"
+          : "Ακριβώς σωστό (εναλλακτική διατύπωση)!",
       };
     }
     if (res.verdict === "typo" && best.verdict === "wrong") {
@@ -1221,20 +1248,30 @@ export function evaluateSentenceAnswer(
 
 export function parseSentenceJsonInput(
   rawJson: string,
+  lang: "el" | "en" = "el",
 ): { ok: true; items: Record<string, unknown>[] } | { ok: false; error: string } {
+  const isEn = lang === "en";
   const cleaned = String(rawJson || "")
     .replace(/^\uFEFF/, "")
     .trim();
   if (!cleaned) {
-    return { ok: false, error: "Επικόλλησε ένα έγκυρο JSON αντικείμενο ή JSON array προτάσεων." };
+    return {
+      ok: false,
+      error: isEn
+        ? "Paste a valid JSON object or JSON array of sentences."
+        : "Επικόλλησε ένα έγκυρο JSON αντικείμενο ή JSON array προτάσεων.",
+    };
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
   } catch (err) {
-    const detail = err instanceof Error ? err.message : "Μη έγκυρη σύνταξη JSON";
-    return { ok: false, error: `Σφάλμα σύνταξης JSON: ${detail}` };
+    const detail = err instanceof Error ? err.message : isEn ? "Invalid JSON syntax" : "Μη έγκυρη σύνταξη JSON";
+    return {
+      ok: false,
+      error: isEn ? `JSON syntax error: ${detail}` : `Σφάλμα σύνταξης JSON: ${detail}`,
+    };
   }
 
   let list: unknown[];
@@ -1251,25 +1288,37 @@ export function parseSentenceJsonInput(
   } else {
     return {
       ok: false,
-      error: "Το JSON πρέπει να είναι αντικείμενο πρότασης ή πίνακας (array) προτάσεων.",
+      error: isEn
+        ? "JSON must be a sentence object or an array of sentences."
+        : "Το JSON πρέπει να είναι αντικείμενο πρότασης ή πίνακας (array) προτάσεων.",
     };
   }
 
   if (list.length === 0) {
-    return { ok: false, error: "Ο πίνακας JSON είναι κενός." };
+    return { ok: false, error: isEn ? "The JSON array is empty." : "Ο πίνακας JSON είναι κενός." };
   }
 
   const validItems: Record<string, unknown>[] = [];
   for (let i = 0; i < list.length; i++) {
     const item = list[i];
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return { ok: false, error: `Η καταχώριση #${i + 1} δεν είναι έγκυρο αντικείμενο JSON.` };
+      return {
+        ok: false,
+        error: isEn
+          ? `Entry #${i + 1} is not a valid JSON object.`
+          : `Η καταχώριση #${i + 1} δεν είναι έγκυρο αντικείμενο JSON.`,
+      };
     }
     const rec = item as Record<string, unknown>;
     const rawSentence = rec["sentence"];
     const sentence = typeof rawSentence === "string" ? rawSentence.trim() : "";
     if (!sentence) {
-      return { ok: false, error: `Η καταχώριση #${i + 1} δεν έχει πεδίο "sentence".` };
+      return {
+        ok: false,
+        error: isEn
+          ? `Entry #${i + 1} is missing the "sentence" field.`
+          : `Η καταχώριση #${i + 1} δεν έχει πεδίο "sentence".`,
+      };
     }
     const rawMeaning = rec["meaning"];
     const meaning =
@@ -1282,7 +1331,9 @@ export function parseSentenceJsonInput(
     if (!hasMeaning) {
       return {
         ok: false,
-        error: `Η καταχώριση #${i + 1} («${sentence}») χρειάζεται τουλάχιστον ελληνική ή αγγλική σημασία στο πεδίο "meaning".`,
+        error: isEn
+          ? `Entry #${i + 1} ("${sentence}") needs at least a Greek or English meaning in "meaning".`
+          : `Η καταχώριση #${i + 1} («${sentence}») χρειάζεται τουλάχιστον ελληνική ή αγγλική σημασία στο πεδίο "meaning".`,
       };
     }
     validItems.push(rec);
@@ -1543,6 +1594,7 @@ export function buildSentenceQuestion(
       rng,
     );
 
+    const cue = lang === "en" ? entry.meaning.en || entry.meaning.el : entry.meaning.el || entry.meaning.en;
     return {
       key: `${entry.id}::situation`,
       mode: "situation",
@@ -1552,8 +1604,10 @@ export function buildSentenceQuestion(
         context: entry.context || SENTENCE_TYPE_LABELS[entry.type].de,
         usage:
           entry.usage ||
-          `Επίλεξε την κατάλληλη γερμανική έκφραση για: «${entry.meaning.el || entry.meaning.en}».`,
-        meaningCue: entry.meaning.el || entry.meaning.en,
+          (lang === "en"
+            ? `Choose the right German expression for: "${cue}".`
+            : `Επίλεξε την κατάλληλη γερμανική έκφραση για: «${cue}».`),
+        meaningCue: cue,
       },
     };
   }
@@ -1705,6 +1759,7 @@ export function sentenceWeeklyTimeline(
   meta: SentenceMeta,
   days = 7,
   nowTs: number = Date.now(),
+  lang: "el" | "en" = "el",
 ): Array<{ date: string; label: string; attempts: number; correct: number; unique: number }> {
   const out: Array<{
     date: string;
@@ -1713,7 +1768,10 @@ export function sentenceWeeklyTimeline(
     correct: number;
     unique: number;
   }> = [];
-  const weekdayNames = ["Κυρ", "Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ"];
+  const weekdayNames =
+    lang === "en"
+      ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      : ["Κυρ", "Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ"];
   for (let i = days - 1; i >= 0; i--) {
     const ts = nowTs - i * SENTENCE_DAY_MS;
     const date = sentenceDateStr(ts);

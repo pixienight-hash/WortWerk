@@ -54,16 +54,26 @@ describe("Navigation, Home progress overview, and Fortschritt layout", () => {
     const nav = await waitFor(() => screen.getByRole("navigation", { name: "Κύρια πλοήγηση" }));
     fireEvent.click(within(nav).getByRole("button", { name: "Wörter" }));
 
-    // Open Γνωρίζω ήδη modal and verify all existing words are listed with checkboxes
+    // Open Γνωρίζω ήδη modal and verify all existing words are listed in Λίστα
     fireEvent.click(screen.getByRole("button", { name: "Γνωρίζω ήδη" }));
     const dialog = screen.getByRole("dialog", { name: "Γνωρίζω ήδη" });
-    const checkboxes = dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    expect(checkboxes.length).toBeGreaterThan(100);
+    const initialBoxes = dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    const initialCount = initialBoxes.length;
+    expect(initialCount).toBeGreaterThan(100);
+    expect(
+      within(dialog).getByRole("button", { name: `Λίστα (${initialCount})` }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Γνωστές (0)" })).toBeInTheDocument();
 
-    // Multi-select 2 words and save
-    fireEvent.click(checkboxes[0]!);
-    fireEvent.click(checkboxes[1]!);
-    expect(within(dialog).getByRole("button", { name: /Επιλεγμένες \(2\)/ })).toBeInTheDocument();
+    // Selecting 2 words removes them from Λίστα and moves them to Γνωστές
+    fireEvent.click(initialBoxes[0]!);
+    const afterFirstBoxes = dialog.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(afterFirstBoxes.length).toBe(initialCount - 1);
+    fireEvent.click(afterFirstBoxes[0]!);
+    expect(
+      within(dialog).getByRole("button", { name: `Λίστα (${initialCount - 2})` }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Γνωστές (2)" })).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Αποθήκευση" }));
     expect(screen.queryByRole("dialog", { name: "Γνωρίζω ήδη" })).not.toBeInTheDocument();
 
@@ -74,16 +84,23 @@ describe("Navigation, Home progress overview, and Fortschritt layout", () => {
       expect(known).toHaveLength(2);
     });
 
-    // Reopen dialog, verify selections persisted, and undo one selection
+    // Reopen dialog, switch to Γνωστές, verify selections persisted, and undo one selection
     fireEvent.click(screen.getByRole("button", { name: "Γνωρίζω ήδη" }));
     const reopened = screen.getByRole("dialog", { name: "Γνωρίζω ήδη" });
-    const reopenedBoxes = reopened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    expect(reopenedBoxes[0]).toBeChecked();
-    expect(reopenedBoxes[1]).toBeChecked();
+    expect(
+      within(reopened).getByRole("button", { name: `Λίστα (${initialCount - 2})` }),
+    ).toBeInTheDocument();
+    fireEvent.click(within(reopened).getByRole("button", { name: "Γνωστές (2)" }));
+    const knownBoxes = reopened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(knownBoxes).toHaveLength(2);
+    expect(knownBoxes[0]).toBeChecked();
+    expect(knownBoxes[1]).toBeChecked();
 
-    fireEvent.click(reopenedBoxes[0]!);
-    expect(reopenedBoxes[0]).not.toBeChecked();
-    expect(within(reopened).getByRole("button", { name: /Επιλεγμένες \(1\)/ })).toBeInTheDocument();
+    fireEvent.click(knownBoxes[0]!);
+    expect(
+      within(reopened).getByRole("button", { name: `Λίστα (${initialCount - 1})` }),
+    ).toBeInTheDocument();
+    expect(within(reopened).getByRole("button", { name: "Γνωστές (1)" })).toBeInTheDocument();
     fireEvent.click(within(reopened).getByRole("button", { name: "Αποθήκευση" }));
 
     await waitFor(() => {

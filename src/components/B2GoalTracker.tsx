@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Play, Target } from "lucide-react";
 import { b2GoalProgress, type Word } from "@/lib/wortwerk-data";
 import MasteryEvidence from "@/components/MasteryEvidence";
+import { useAppLang, wordPrimaryMeanings } from "@/lib/i18n";
 
 type Props = {
   vocab: Word[];
@@ -17,10 +18,20 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const TICK_ANGLES = [0, 90, 180, 270];
 
 export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest }: Props) {
+  const { lang, t } = useAppLang();
   const goal = useMemo(() => b2GoalProgress(vocab, Date.now()), [vocab]);
   const [selectedMilestonePct, setSelectedMilestonePct] = useState<number | null>(null);
   const [showClosest, setShowClosest] = useState(false);
   const [expandedWordId, setExpandedWordId] = useState<string | null>(null);
+
+  const milestoneLabel = (pct: number, fallback: string) => {
+    if (lang !== "en") return fallback;
+    if (pct === 25) return "Foundation";
+    if (pct === 50) return "Halfway";
+    if (pct === 75) return "Readiness";
+    if (pct === 100) return "Full B2 Mastery";
+    return fallback;
+  };
 
   const activeMilestone = useMemo(() => {
     if (selectedMilestonePct != null) {
@@ -35,31 +46,35 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
 
   if (goal.total === 0) {
     return (
-      <section aria-label="Στόχος κατάκτησης B2" className="ww-tag-card mb-4 p-5">
+      <section aria-label={t("Στόχος κατάκτησης B2", "B2 Mastery Goal")} className="ww-tag-card mb-4 p-5">
         <div className="flex items-center gap-2 text-[#4FA091]">
           <Target size={16} aria-hidden="true" />
-          <h2 className="ww-display text-lg font-bold text-[#211F1C]">Στόχος κατάκτησης B2</h2>
+          <h2 className="ww-display text-lg font-bold text-[#211F1C]">
+            {t("Στόχος κατάκτησης B2", "B2 Mastery Goal")}
+          </h2>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-[#6B655B]">
-          Δεν υπάρχουν ακόμα ενεργές λέξεις επιπέδου B2. Πρόσθεσε ή ενεργοποίησε B2 λέξεις για να
-          παρακολουθείς τον στόχο κατάκτησης.
+          {t(
+            "Δεν υπάρχουν ακόμα ενεργές λέξεις επιπέδου B2. Πρόσθεσε ή ενεργοποίησε B2 λέξεις για να παρακολουθείς τον στόχο κατάκτησης.",
+            "No active B2 words yet. Add or enable B2 words to track your mastery goal.",
+          )}
         </p>
       </section>
     );
   }
 
   return (
-    <section aria-label="Στόχος κατάκτησης B2" className="ww-tag-card ww-pop mb-4 p-5">
+    <section aria-label={t("Στόχος κατάκτησης B2", "B2 Mastery Goal")} className="ww-tag-card ww-pop mb-4 p-5">
       {/* Header row — clean unboxed typography */}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-2">
           <Target size={16} className="shrink-0 text-[#3F8C5F]" aria-hidden="true" />
           <h2 className="ww-display text-lg font-bold leading-tight text-[#211F1C]">
-            Στόχος κατάκτησης B2
+            {t("Στόχος κατάκτησης B2", "B2 Mastery Goal")}
           </h2>
         </div>
         <div className="ww-mono text-xs font-semibold tabular-nums text-[#6B655B]">
-          {goal.mastered} / {goal.total} λέξεις
+          {goal.mastered} / {goal.total} {t("λέξεις", "words")}
         </div>
       </div>
 
@@ -67,11 +82,14 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
       <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:items-center">
         <div
           role="progressbar"
-          aria-label="Πρόοδος κατάκτησης λέξεων B2"
+          aria-label={t("Πρόοδος κατάκτησης λέξεων B2", "B2 word mastery progress")}
           aria-valuemin={0}
           aria-valuemax={goal.total}
           aria-valuenow={goal.mastered}
-          aria-valuetext={`${goal.mastered} από ${goal.total} κατακτημένες λέξεις B2 (${goal.masteredPct}%)`}
+          aria-valuetext={t(
+            `${goal.mastered} από ${goal.total} κατακτημένες λέξεις B2 (${goal.masteredPct}%)`,
+            `${goal.mastered} of ${goal.total} B2 words mastered (${goal.masteredPct}%)`,
+          )}
           className="relative shrink-0"
           style={{ width: RING_SIZE, height: RING_SIZE }}
         >
@@ -157,11 +175,20 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
         <div className="w-full min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-[#211F1C]">
             {isComplete
-              ? "Όλες οι B2 λέξεις έχουν κατακτηθεί με τεκμηρίωση."
-              : `${goal.remainingToMaster} ${goal.remainingToMaster === 1 ? "λέξη απομένει" : "λέξεις απομένουν"} για πλήρη κατάκτηση B2.`}
+              ? t(
+                  "Όλες οι B2 λέξεις έχουν κατακτηθεί με τεκμηρίωση.",
+                  "All B2 words have been mastered with verified evidence.",
+                )
+              : t(
+                  `${goal.remainingToMaster} ${goal.remainingToMaster === 1 ? "λέξη απομένει" : "λέξεις απομένουν"} για πλήρη κατάκτηση B2.`,
+                  `${goal.remainingToMaster} ${goal.remainingToMaster === 1 ? "word left" : "words left"} for full B2 mastery.`,
+                )}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-[#6B655B]">
-            Η κατάκτηση βασίζεται αποκλειστικά σε επαληθευμένη τεκμηρίωση (όχι παλαιούς μετρητές).
+            {t(
+              "Η κατάκτηση βασίζεται αποκλειστικά σε επαληθευμένη τεκμηρίωση (όχι παλαιούς μετρητές).",
+              "Mastery is based strictly on verified evidence (not legacy counters).",
+            )}
           </p>
 
           <dl className="mt-3.5 grid grid-cols-3 gap-3 border-t border-[#ECE4D3] pt-3">
@@ -171,7 +198,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
                   aria-hidden="true"
                   className="inline-block h-2 w-2 shrink-0 rounded-sm bg-[#4FA091]"
                 />
-                <span className="truncate">Κατακτημ.</span>
+                <span className="truncate">{t("Κατακτημ.", "Mastered")}</span>
               </dt>
               <dd className="ww-mono mt-0.5 text-sm font-bold tabular-nums text-[#211F1C]">
                 {goal.mastered}
@@ -183,14 +210,14 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
                   aria-hidden="true"
                   className="inline-block h-2 w-2 shrink-0 rounded-sm bg-[#CB9146]/60"
                 />
-                <span className="truncate">Αφομοίωση</span>
+                <span className="truncate">{t("Αφομοίωση", "Consolid.")}</span>
               </dt>
               <dd className="ww-mono mt-0.5 text-sm font-bold tabular-nums text-[#211F1C]">
                 {goal.inConsolidation}
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] text-[#6B655B]">Οφείλονται</dt>
+              <dt className="text-[11px] text-[#6B655B]">{t("Οφείλονται", "Due")}</dt>
               <dd className="ww-mono mt-0.5 text-sm font-bold tabular-nums text-[#211F1C]">
                 {goal.due}
               </dd>
@@ -201,7 +228,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
 
       {/* Interactive milestone checkpoints (25% / 50% / 75% / 100%) */}
       <div className="mt-4 border-t border-[#ECE4D3] pt-3.5">
-        <div role="group" aria-label="Ορόσημα στόχου B2" className="grid grid-cols-4 gap-1.5">
+        <div role="group" aria-label={t("Ορόσημα στόχου B2", "B2 goal milestones")} className="grid grid-cols-4 gap-1.5">
           {goal.milestones.map((ms) => {
             const isSelected = activeMilestone?.pct === ms.pct;
             return (
@@ -225,7 +252,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
                   {ms.pct}%
                 </span>
                 <span className="mt-0.5 w-full truncate text-[10px] leading-tight">
-                  {ms.targetCount} λ.
+                  {ms.targetCount} {t("λ.", "w.")}
                 </span>
               </button>
             );
@@ -236,15 +263,17 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-[#4A453D]">
             <span>
               <strong className="font-semibold text-[#211F1C]">
-                {activeMilestone.label} ({activeMilestone.pct}%)
+                {milestoneLabel(activeMilestone.pct, activeMilestone.label)} ({activeMilestone.pct}%)
               </strong>{" "}
               <span aria-hidden="true">·</span>{" "}
               <span className="tabular-nums">
-                στόχος {activeMilestone.targetCount} κατακτημένες
+                {t(`στόχος ${activeMilestone.targetCount} κατακτημένες`, `target ${activeMilestone.targetCount} mastered`)}
               </span>
             </span>
             <span className="ww-mono text-[11px] font-semibold tabular-nums text-[#3F8C5F]">
-              {activeMilestone.reached ? "Επιτεύχθηκε" : `Απομένουν ${activeMilestone.remaining}`}
+              {activeMilestone.reached
+                ? t("Επιτεύχθηκε", "Reached")
+                : t(`Απομένουν ${activeMilestone.remaining}`, `${activeMilestone.remaining} left`)}
             </span>
           </div>
         )}
@@ -259,7 +288,9 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
             onClick={() => setShowClosest((v) => !v)}
             className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-1 text-left text-xs font-semibold text-[#211F1C] transition-colors hover:text-[#357A6D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FA091]"
           >
-            <span>Πιο κοντά στην κατάκτηση ({goal.closestWords.length})</span>
+            <span>
+              {t(`Πιο κοντά στην κατάκτηση (${goal.closestWords.length})`, `Closest to mastery (${goal.closestWords.length})`)}
+            </span>
             {showClosest ? (
               <ChevronUp size={15} className="shrink-0 text-[#6B655B]" aria-hidden="true" />
             ) : (
@@ -271,6 +302,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
             <div className="mt-1.5 divide-y divide-[#F1EBDF]">
               {goal.closestWords.map((item) => {
                 const isWordOpen = expandedWordId === item.id;
+                const meaningLine = wordPrimaryMeanings(item.word, lang).join(", ") || item.greek;
                 return (
                   <div key={item.id} className="py-2">
                     <button
@@ -283,7 +315,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
                         <div className="truncate text-[13px] font-semibold text-[#211F1C]">
                           {item.label}
                         </div>
-                        <div className="truncate text-[11px] text-[#6B655B]">{item.greek}</div>
+                        <div className="truncate text-[11px] text-[#6B655B]">{meaningLine}</div>
                       </div>
                       <div className="w-20 shrink-0">
                         <div className="flex items-center justify-between text-[10.5px] tabular-nums">
@@ -325,7 +357,9 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
               className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#211F1C] px-4 py-2 text-xs font-semibold text-[#F5F0E6] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#211F1C]"
             >
               <Play size={13} aria-hidden="true" />
-              <span>Εξάσκηση πιο κοντινών ({goal.closestWords.length})</span>
+              <span>
+                {t(`Εξάσκηση πιο κοντινών (${goal.closestWords.length})`, `Practice closest (${goal.closestWords.length})`)}
+              </span>
             </button>
           )}
           {onOpenB2Stats && (
@@ -334,7 +368,7 @@ export default function B2GoalTracker({ vocab, onOpenB2Stats, onPracticeClosest 
               onClick={onOpenB2Stats}
               className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D9D0BE] bg-[#FAF7F0] px-4 py-2 text-xs font-semibold text-[#211F1C] transition-colors hover:bg-[#F1EBDF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FA091]"
             >
-              <span>Αναλυτική πρόοδος B2</span>
+              <span>{t("Αναλυτική πρόοδος B2", "Detailed B2 progress")}</span>
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           )}

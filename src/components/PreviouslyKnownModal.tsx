@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { isPreviouslyKnown, normalizedWord, type Word } from "@/lib/wortwerk-data";
+import { useAppLang, wordPrimaryMeanings } from "@/lib/i18n";
 
 type Props = {
   vocab: Word[];
@@ -9,24 +10,32 @@ type Props = {
 };
 
 export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) {
+  const { lang, t } = useAppLang();
   const initialSelected = useMemo(
     () => new Set((vocab || []).filter(isPreviouslyKnown).map((w) => String(w.id))),
     [vocab],
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(initialSelected));
   const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"all" | "selected">("all");
+  const [viewMode, setViewMode] = useState<"list" | "known">("list");
+
+  const listCount = Math.max(0, (vocab || []).length - selectedIds.size);
 
   const filtered = useMemo(() => {
     const q = normalizedWord(query);
     return (vocab || []).filter((w) => {
-      if (viewMode === "selected" && !selectedIds.has(String(w.id))) return false;
+      const isSelected = selectedIds.has(String(w.id));
+      if (viewMode === "list" && isSelected) return false;
+      if (viewMode === "known" && !isSelected) return false;
       if (!q) return true;
       const hitWord = normalizedWord(w.word).includes(q);
       const hitGreek = ((w.meaning && w.meaning.greek) || []).some((g: string) =>
         normalizedWord(g).includes(q),
       );
-      return hitWord || hitGreek;
+      const hitEnglish = ((w.meaning && w.meaning.english) || []).some((e: string) =>
+        normalizedWord(e).includes(q),
+      );
+      return hitWord || hitGreek || hitEnglish;
     });
   }, [vocab, query, viewMode, selectedIds]);
 
@@ -55,7 +64,7 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Γνωρίζω ήδη"
+      aria-label={t("Γνωρίζω ήδη", "Already know")}
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-end justify-center bg-[#211F1C]/45 sm:items-center sm:p-4"
     >
@@ -67,17 +76,19 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
         <div className="flex items-start justify-between gap-3 border-b border-[#ECE4D3] px-5 pb-3.5 pt-5">
           <div className="min-w-0">
             <h2 className="ww-display text-[22px] font-bold leading-tight text-[#211F1C]">
-              Γνωρίζω ήδη
+              {t("Γνωρίζω ήδη", "Already know")}
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-[#6B655B]">
-              Επίλεξε λέξεις που ήδη ξέρεις καλά. Θα εμφανίζονται σπάνια στα τεστ (~10%) χωρίς να
-              μετρούν ως κατάκτηση του WortWerk.
+              {t(
+                "Επίλεξε λέξεις που ήδη ξέρεις καλά. Θα εμφανίζονται σπάνια στα τεστ (~10%) χωρίς να μετρούν ως κατάκτηση του WortWerk.",
+                "Select words you already know well. They will appear rarely in tests (~10%) without counting as WortWerk mastery.",
+              )}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Κλείσιμο"
+            aria-label={t("Κλείσιμο", "Close")}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F0E6] text-[#4A453D] transition-colors hover:bg-[#ECE4D3]"
           >
             <X size={18} aria-hidden="true" />
@@ -96,40 +107,40 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              aria-label="Αναζήτηση στη λίστα λέξεων"
-              placeholder="Αναζήτηση λέξης (Deutsch / Ελληνικά)…"
+              aria-label={t("Αναζήτηση στη λίστα λέξεων", "Search word list")}
+              placeholder={t("Αναζήτηση λέξης (Deutsch / Ελληνικά)…", "Search word (German / English)…")}
               className="h-10 w-full rounded-xl border border-[#E8E0CE] bg-[#FFFFFF] pl-9 pr-3 text-sm text-[#211F1C] outline-none focus:border-[#4FA091]"
             />
           </div>
 
           <div
             role="group"
-            aria-label="Φίλτρο προβολής"
+            aria-label={t("Φίλτρο προβολής", "View filter")}
             className="mt-2.5 grid grid-cols-2 gap-1 rounded-lg bg-[#ECE4D3]/60 p-1"
           >
             <button
               type="button"
-              aria-pressed={viewMode === "all"}
-              onClick={() => setViewMode("all")}
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
               className={`min-h-[34px] rounded-md px-2 text-xs font-semibold transition-colors ${
-                viewMode === "all"
+                viewMode === "list"
                   ? "bg-[#FFFFFF] text-[#211F1C] shadow-xs"
                   : "text-[#6B655B] hover:text-[#211F1C]"
               }`}
             >
-              Όλες ({vocab.length})
+              {t("Λίστα", "List")} ({listCount})
             </button>
             <button
               type="button"
-              aria-pressed={viewMode === "selected"}
-              onClick={() => setViewMode("selected")}
+              aria-pressed={viewMode === "known"}
+              onClick={() => setViewMode("known")}
               className={`min-h-[34px] rounded-md px-2 text-xs font-semibold transition-colors ${
-                viewMode === "selected"
+                viewMode === "known"
                   ? "bg-[#FFFFFF] text-[#211F1C] shadow-xs"
                   : "text-[#6B655B] hover:text-[#211F1C]"
               }`}
             >
-              Επιλεγμένες ({selectedIds.size})
+              {t("Γνωστές", "Known")} ({selectedIds.size})
             </button>
           </div>
         </div>
@@ -138,16 +149,18 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
         <div className="flex-1 overflow-y-auto px-3 py-2">
           {filtered.length === 0 ? (
             <div className="py-10 text-center text-xs text-[#8B8680]">
-              {viewMode === "selected"
-                ? "Δεν έχεις επιλέξει ακόμα λέξεις."
-                : "Δεν βρέθηκαν λέξεις."}
+              {viewMode === "known"
+                ? t("Δεν έχεις προσθέσει ακόμα γνωστές λέξεις.", "You haven't marked any known words yet.")
+                : query.trim()
+                  ? t("Δεν βρέθηκαν λέξεις.", "No words found.")
+                  : t("Όλες οι λέξεις βρίσκονται στις Γνωστές.", "All words are in Known.")}
             </div>
           ) : (
             <ul className="divide-y divide-[#F1EBDF]">
               {filtered.map((w) => {
                 const id = String(w.id);
                 const checked = selectedIds.has(id);
-                const greek = ((w.meaning && w.meaning.greek) || []).join(", ");
+                const meaningLine = wordPrimaryMeanings(w, lang).join(", ");
                 const metaLine = [w.cefr, w.type].filter(Boolean).join(" · ");
                 return (
                   <li key={id}>
@@ -169,7 +182,7 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
                             </span>
                           )}
                         </div>
-                        {greek && <div className="truncate text-xs text-[#6B655B]">{greek}</div>}
+                        {meaningLine && <div className="truncate text-xs text-[#6B655B]">{meaningLine}</div>}
                       </div>
                     </label>
                   </li>
@@ -183,7 +196,7 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
         <div className="border-t border-[#ECE4D3] bg-[#FFFFFF] px-5 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3">
           <div className="mb-2.5 flex items-center justify-between text-xs text-[#6B655B] tabular-nums">
             <span>
-              Επιλεγμένες:{" "}
+              {t("Γνωστές", "Known")}:{" "}
               <strong className="font-semibold text-[#211F1C]">{selectedIds.size}</strong>
             </span>
             {changesCount.total > 0 && (
@@ -200,7 +213,7 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
               onClick={onClose}
               className="min-h-[44px] flex-1 rounded-full border border-[#E8E0CE] bg-[#FAF7F0] px-4 text-sm font-semibold text-[#4A453D] transition-colors hover:bg-[#ECE4D3]"
             >
-              Ακύρωση
+              {t("Ακύρωση", "Cancel")}
             </button>
             <button
               type="button"
@@ -208,7 +221,7 @@ export default function PreviouslyKnownModal({ vocab, onClose, onSave }: Props) 
               className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full bg-[#211F1C] px-4 text-sm font-bold text-[#F5F0E6] transition-opacity hover:opacity-95"
             >
               <Check size={16} aria-hidden="true" />
-              <span>Αποθήκευση</span>
+              <span>{t("Αποθήκευση", "Save")}</span>
             </button>
           </div>
         </div>

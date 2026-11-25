@@ -20,76 +20,101 @@ import {
   type SentenceAnswerVerdict,
   type SentenceExerciseMode,
 } from "@/lib/sentences-data";
+import { useAppLang } from "@/lib/i18n";
 import SentencePracticeRunner from "./SentencePracticeRunner";
 
 type ExerciseChoice = Exclude<SentenceExerciseMode, "flashcard"> | "mix";
 
 const EXERCISE_CARDS: Array<{
   id: ExerciseChoice;
-  title: string;
+  titleEl: string;
+  titleEn: string;
   tag: string;
-  desc: string;
-  weight: string;
+  descEl: string;
+  descEn: string;
+  weightEl: string;
+  weightEn: string;
   color: string;
   bg: string;
   icon: typeof BookOpenCheck;
 }> = [
   {
     id: "bedeutung",
-    title: "Bedeutung",
+    titleEl: "Bedeutung",
+    titleEn: "Bedeutung",
     tag: "A",
-    desc: "Εμφανίζεται η γερμανική πρόταση και επιλέγεις τη σωστή ελληνική ή αγγλική σημασία.",
-    weight: "Αναγνώριση",
+    descEl:
+      "Εμφανίζεται η γερμανική πρόταση και επιλέγεις τη σωστή ελληνική ή αγγλική σημασία.",
+    descEn: "See the German sentence and choose the right English or Greek meaning.",
+    weightEl: "Αναγνώριση",
+    weightEn: "Recognition",
     color: "#4FA091",
     bg: "rgba(79,160,145,0.14)",
     icon: BookOpenCheck,
   },
   {
     id: "erinnern",
-    title: "Erinnern",
+    titleEl: "Erinnern",
+    titleEn: "Erinnern",
     tag: "B",
-    desc: "Εμφανίζεται η ελληνική σημασία και ανακαλείς τη γερμανική έκφραση.",
-    weight: "Ενεργή ανάκληση",
+    descEl: "Εμφανίζεται η ελληνική σημασία και ανακαλείς τη γερμανική έκφραση.",
+    descEn: "See the English meaning and recall the German expression.",
+    weightEl: "Ενεργή ανάκληση",
+    weightEn: "Active recall",
     color: "#CB9146",
     bg: "rgba(203,145,70,0.15)",
     icon: Brain,
   },
   {
     id: "lueckentext",
-    title: "Lückentext",
+    titleEl: "Lückentext",
+    titleEn: "Lückentext",
     tag: "C",
-    desc: "Η πρόταση εμφανίζεται με ένα ή περισσότερα κενά που πρέπει να συμπληρωθούν.",
-    weight: "Ενεργή ανάκληση",
+    descEl: "Η πρόταση εμφανίζεται με ένα ή περισσότερα κενά που πρέπει να συμπληρωθούν.",
+    descEn: "The sentence appears with one or more blanks to fill in.",
+    weightEl: "Ενεργή ανάκληση",
+    weightEn: "Active recall",
     color: "#8B7BC7",
     bg: "rgba(139,123,199,0.14)",
     icon: PenLine,
   },
   {
     id: "situation",
-    title: "Situation",
+    titleEl: "Situation",
+    titleEn: "Situation",
     tag: "D",
-    desc: "Εμφανίζεται μια καθημερινή ή επαγγελματική περίσταση και επιλέγεις την κατάλληλη έκφραση.",
-    weight: "Εφαρμογή σε πλαίσιο",
+    descEl:
+      "Εμφανίζεται μια καθημερινή ή επαγγελματική περίσταση και επιλέγεις την κατάλληλη έκφραση.",
+    descEn: "See an everyday or workplace situation and pick the fitting expression.",
+    weightEl: "Εφαρμογή σε πλαίσιο",
+    weightEn: "Contextual choice",
     color: "#3C7D9B",
     bg: "rgba(60,125,155,0.13)",
     icon: MessageSquareText,
   },
   {
     id: "schreiben",
-    title: "Schreiben",
+    titleEl: "Schreiben",
+    titleEn: "Schreiben",
     tag: "E",
-    desc: "Πληκτρολογείς ολόκληρη την πρόταση από μνήμης με αυστηρή αξιολόγηση δομής & ορθογραφίας.",
-    weight: "Απαραίτητο για Mastered",
+    descEl:
+      "Πληκτρολογείς ολόκληρη την πρόταση από μνήμης με αυστηρή αξιολόγηση δομής & ορθογραφίας.",
+    descEn: "Type the entire sentence from memory with strict structure & spelling evaluation.",
+    weightEl: "Απαραίτητο για Mastered",
+    weightEn: "Required for Mastered",
     color: "#B5542E",
     bg: "rgba(181,84,46,0.13)",
     icon: Keyboard,
   },
   {
     id: "mix",
-    title: "Mix (Όλες οι ασκήσεις)",
+    titleEl: "Mix (Όλες οι ασκήσεις)",
+    titleEn: "Mix (All exercises)",
     tag: "★",
-    desc: "Συνδυασμός όλων των ασκήσεων σε έναν ολοκληρωμένο γύρο εξάσκησης.",
-    weight: "Ολοκληρωμένη εξάσκηση",
+    descEl: "Συνδυασμός όλων των ασκήσεων σε έναν ολοκληρωμένο γύρο εξάσκησης.",
+    descEn: "Combination of all 5 exercises in one complete practice round.",
+    weightEl: "Ολοκληρωμένη εξάσκηση",
+    weightEn: "Complete practice",
     color: "#211F1C",
     bg: "rgba(33,31,28,0.10)",
     icon: Shuffle,
@@ -110,6 +135,7 @@ interface Props {
 }
 
 export default function SentenceExercisesView({ sentences, onRecordAnswer }: Props) {
+  const { lang, isEn, t } = useAppLang();
   const [cefrFilter, setCefrFilter] = useState<SentenceCefr | "all">("all");
   const [typeFilter, setTypeFilter] = useState<SentenceType | "all">("all");
   const [sessionSize, setSessionSize] = useState<number>(8);
@@ -135,6 +161,7 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
     if (filteredPool.length === 0) return;
     const questions = buildSentenceSession(filteredPool, mode, sentences, {
       limit: Math.min(sessionSize, filteredPool.length),
+      promptLanguage: lang,
     });
     setActive({ mode, title, questions });
   }
@@ -165,7 +192,10 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
           Übungen
         </h1>
         <p className="mt-0.5 text-[13px] text-[#8B8680]">
-          5 εξειδικευμένες ασκήσεις για προτάσεις &amp; εκφράσεις · {filteredPool.length} διαθέσιμες
+          {t(
+            `5 εξειδικευμένες ασκήσεις για προτάσεις & εκφράσεις · ${filteredPool.length} διαθέσιμες`,
+            `5 dedicated exercises for sentences & expressions · ${filteredPool.length} available`,
+          )}
         </p>
       </div>
 
@@ -177,7 +207,7 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
             onClick={() => setCefrFilter("all")}
             className={chipClass(cefrFilter === "all")}
           >
-            Όλα τα CEFR
+            {t("Όλα τα CEFR", "All CEFR")}
           </button>
           {availableCefrs.map((lvl) => (
             <button
@@ -197,22 +227,22 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
             onClick={() => setTypeFilter("all")}
             className={chipClass(typeFilter === "all")}
           >
-            Όλοι οι τύποι
+            {t("Όλοι οι τύποι", "All types")}
           </button>
-          {SENTENCE_TYPES.map((t) => (
+          {SENTENCE_TYPES.map((tp) => (
             <button
-              key={t}
+              key={tp}
               type="button"
-              onClick={() => setTypeFilter(t)}
-              className={chipClass(typeFilter === t)}
+              onClick={() => setTypeFilter(tp)}
+              className={chipClass(typeFilter === tp)}
             >
-              {SENTENCE_TYPE_LABELS[t].de}
+              {SENTENCE_TYPE_LABELS[tp].de}
             </button>
           ))}
         </div>
 
         <div className="flex items-center justify-between pt-1 text-xs text-[#8B8680]">
-          <span>Πλήθος ερωτήσεων ανά γύρο:</span>
+          <span>{t("Πλήθος ερωτήσεων ανά γύρο:", "Questions per round:")}</span>
           <div className="flex gap-1.5">
             {[5, 8, 12, 20].map((n) => (
               <button
@@ -237,12 +267,15 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
         {EXERCISE_CARDS.map((card) => {
           const Icon = card.icon;
           const disabled = filteredPool.length === 0;
+          const title = isEn ? card.titleEn : card.titleEl;
+          const desc = isEn ? card.descEn : card.descEl;
+          const weight = isEn ? card.weightEn : card.weightEl;
           return (
             <button
               key={card.id}
               type="button"
               disabled={disabled}
-              onClick={() => startExercise(card.id, card.title)}
+              onClick={() => startExercise(card.id, title)}
               className="ww-tag-card flex flex-col justify-between p-4 text-left transition hover:border-[#D9CEB8] disabled:opacity-45"
             >
               <div>
@@ -256,19 +289,19 @@ export default function SentenceExercisesView({ sentences, onRecordAnswer }: Pro
                     </span>
                     <div>
                       <div className="ww-display text-[17px] font-semibold text-[#211F1C]">
-                        {card.title}
+                        {title}
                       </div>
                       <span
                         className="ww-mono text-[10px] font-semibold uppercase"
                         style={{ color: card.color }}
                       >
-                        {card.weight}
+                        {weight}
                       </span>
                     </div>
                   </div>
                   <ChevronRight size={16} className="text-[#A79F8E]" />
                 </div>
-                <p className="mt-2.5 text-xs leading-relaxed text-[#6B655D]">{card.desc}</p>
+                <p className="mt-2.5 text-xs leading-relaxed text-[#6B655D]">{desc}</p>
               </div>
             </button>
           );
